@@ -29,7 +29,7 @@ why a scenario does not apply. TODO entries are tracked work.
 | C22 | beforeSend can mutate or drop entries | ✅ | `tests/test_hooks.py` |
 | C23 | sampling: rate 0 sends nothing (logs) / no-op spans (traces) | ✅ | `tests/test_hooks.py` (logs), `tests/test_otel.py` (traces) |
 | C24 | OTLP span export with service.name resource | ✅ | `tests/test_otel.py` (`logtide_sdk.otel`, extra `[otel]`) |
-| C25 | outbound traceparent injection on instrumented HTTP clients | TODO | outbound traceparent helper not implemented |
+| C25 | outbound traceparent injection on instrumented HTTP clients | ✅ | `inject_traceparent` (`tests/test_tracecontext.py`) |
 | C26 | log/trace correlation: active span ids on entries | ✅ | `tests/test_otel.py` (logs inside a span) |
 | C27 | middleware error capture rethrows after logging | ✅ | middleware re-raise after logging (`middleware/*.py`) |
 | C28 | logging-bridge level mapping and scope context | ✅ | `tests/test_structlog.py`, `handler.py` stdlib mapping |
