@@ -12,6 +12,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.tracecontext import resolve_trace_id
 
 
 class LogTideFlaskMiddleware:
@@ -76,6 +77,20 @@ class LogTideFlaskMiddleware:
         """Check if path should be skipped."""
         return path in self.skip_paths
 
+    def _trace_id(self) -> str:
+        """Resolve the request's trace ID once and cache it on g.
+
+        Order: W3C traceparent -> legacy X-Trace-ID -> generated (spec 005).
+        Kept request-local (g) — never set on the shared client — to avoid
+        races across concurrent requests.
+        """
+        if not hasattr(g, "logtide_trace_id"):
+            g.logtide_trace_id = resolve_trace_id(
+                request.headers.get("traceparent"),
+                request.headers.get("X-Trace-ID"),
+            )
+        return g.logtide_trace_id
+
     def _before_request(self) -> None:
         """Log incoming request."""
         if self._should_skip(request.path):
@@ -98,16 +113,11 @@ class LogTideFlaskMiddleware:
         if self.include_body and request.is_json:
             metadata["body"] = request.get_json(silent=True)
 
-        # Extract trace ID from headers (kept local — not set on the shared client
-        # to avoid race conditions across concurrent requests).
-        trace_id = request.headers.get("X-Trace-ID")
-        if trace_id:
-            metadata["trace_id"] = trace_id
-
         self.client.info(
             self.service_name,
             f"{request.method} {request.path}",
             metadata,
+            trace_id=self._trace_id(),
         )
 
     def _after_request(self, response: Response) -> Response:
@@ -150,18 +160,21 @@ class LogTideFlaskMiddleware:
                 self.service_name,
                 f"{request.method} {request.path} {response.status_code} ({duration_ms:.0f}ms)",
                 metadata,
+                trace_id=self._trace_id(),
             )
         elif response.status_code >= 400:
             self.client.warn(
                 self.service_name,
                 f"{request.method} {request.path} {response.status_code} ({duration_ms:.0f}ms)",
                 metadata,
+                trace_id=self._trace_id(),
             )
         else:
             self.client.info(
                 self.service_name,
                 f"{request.method} {request.path} {response.status_code} ({duration_ms:.0f}ms)",
                 metadata,
+                trace_id=self._trace_id(),
             )
 
         return response
@@ -193,6 +206,7 @@ class LogTideFlaskMiddleware:
                 "duration_ms": round(duration_ms, 2),
                 "exception": serialize_exception(error),
             },
+            trace_id=self._trace_id(),
         )
 
         return resp

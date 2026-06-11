@@ -4,7 +4,6 @@ import asyncio
 import dataclasses
 import json
 import time
-import uuid
 from collections.abc import Callable
 from threading import Lock as ThreadingLock
 from typing import Any
@@ -22,6 +21,7 @@ from logtide_sdk.client import _process_value, serialize_exception
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
+from logtide_sdk.tracecontext import generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
     AggregatedStatsResponse,
@@ -154,7 +154,7 @@ class AsyncLogTideClient:
 
         if entry.trace_id is None:
             if self.options.auto_trace_id:
-                entry.trace_id = str(uuid.uuid4())
+                entry.trace_id = generate_trace_id()
             elif self._trace_id is not None:
                 entry.trace_id = self._trace_id
 
@@ -184,7 +184,13 @@ class AsyncLogTideClient:
             await self.flush()
 
     async def debug(
-        self, service: str, message: str, metadata: dict[str, Any] | None = None
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """Log a DEBUG-level message."""
         await self.log(
@@ -193,11 +199,19 @@ class AsyncLogTideClient:
                 level=LogLevel.DEBUG,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
     async def info(
-        self, service: str, message: str, metadata: dict[str, Any] | None = None
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """Log an INFO-level message."""
         await self.log(
@@ -206,11 +220,19 @@ class AsyncLogTideClient:
                 level=LogLevel.INFO,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
     async def warn(
-        self, service: str, message: str, metadata: dict[str, Any] | None = None
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """Log a WARN-level message."""
         await self.log(
@@ -219,6 +241,8 @@ class AsyncLogTideClient:
                 level=LogLevel.WARN,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
@@ -227,6 +251,9 @@ class AsyncLogTideClient:
         service: str,
         message: str,
         metadata_or_error: dict[str, Any] | Exception | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """Log an ERROR-level message. Accepts an Exception for automatic serialization."""
         metadata = self._process_metadata_or_error(metadata_or_error)
@@ -236,6 +263,8 @@ class AsyncLogTideClient:
                 level=LogLevel.ERROR,
                 message=message,
                 metadata=metadata,
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
@@ -244,6 +273,9 @@ class AsyncLogTideClient:
         service: str,
         message: str,
         metadata_or_error: dict[str, Any] | Exception | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """Log a CRITICAL-level message. Accepts an Exception for automatic serialization."""
         metadata = self._process_metadata_or_error(metadata_or_error)
@@ -253,6 +285,8 @@ class AsyncLogTideClient:
                 level=LogLevel.CRITICAL,
                 message=message,
                 metadata=metadata,
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 

@@ -15,6 +15,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.tracecontext import resolve_trace_id
 
 
 class LogTideStarletteMiddleware(BaseHTTPMiddleware):
@@ -79,9 +80,13 @@ class LogTideStarletteMiddleware(BaseHTTPMiddleware):
         if self._should_skip(request.url.path):
             return await call_next(request)
 
-        # Extract trace ID from request headers (kept local — not set on the shared client
-        # to avoid race conditions across concurrent requests).
-        trace_id: str | None = request.headers.get("x-trace-id")
+        # Resolve the inbound trace context (kept local — not set on the shared
+        # client to avoid race conditions across concurrent requests).
+        # Order: W3C traceparent -> legacy X-Trace-ID -> generated (spec 005).
+        trace_id: str = resolve_trace_id(
+            request.headers.get("traceparent"),
+            request.headers.get("x-trace-id"),
+        )
 
         start_time = time.time()
 
@@ -113,13 +118,12 @@ class LogTideStarletteMiddleware(BaseHTTPMiddleware):
         }
         if self.include_headers:
             metadata["headers"] = dict(request.headers)
-        if trace_id:
-            metadata["trace_id"] = trace_id
 
         self.client.info(
             self.service_name,
             f"{request.method} {request.url.path}",
             metadata,
+            trace_id=trace_id,
         )
 
     def _log_response(
@@ -137,19 +141,17 @@ class LogTideStarletteMiddleware(BaseHTTPMiddleware):
         }
         if self.include_headers:
             metadata["response_headers"] = dict(response.headers)
-        if trace_id:
-            metadata["trace_id"] = trace_id
 
         message = (
             f"{request.method} {request.url.path} {response.status_code} ({duration_ms:.0f}ms)"
         )
 
         if response.status_code >= 500:
-            self.client.error(self.service_name, message, metadata)
+            self.client.error(self.service_name, message, metadata, trace_id=trace_id)
         elif response.status_code >= 400:
-            self.client.warn(self.service_name, message, metadata)
+            self.client.warn(self.service_name, message, metadata, trace_id=trace_id)
         else:
-            self.client.info(self.service_name, message, metadata)
+            self.client.info(self.service_name, message, metadata, trace_id=trace_id)
 
     def _log_error(
         self, request: Request, error: Exception, duration_ms: float, trace_id: str | None = None
@@ -160,12 +162,11 @@ class LogTideStarletteMiddleware(BaseHTTPMiddleware):
             "duration_ms": round(duration_ms, 2),
             "exception": serialize_exception(error),
         }
-        if trace_id:
-            metadata["trace_id"] = trace_id
         self.client.error(
             self.service_name,
             f"Request error: {request.method} {request.url.path} - {str(error)}",
             metadata,
+            trace_id=trace_id,
         )
 
     def _get_client_ip(self, request: Request) -> str | None:

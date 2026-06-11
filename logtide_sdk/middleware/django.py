@@ -13,6 +13,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.tracecontext import resolve_trace_id
 
 
 class LogTideDjangoMiddleware:
@@ -64,9 +65,13 @@ class LogTideDjangoMiddleware:
         if self._should_skip(request.path):
             return self.get_response(request)
 
-        # Extract trace ID from headers (kept local — not set on the shared client
-        # to avoid race conditions across concurrent requests).
-        trace_id: str | None = request.headers.get("X-Trace-ID")
+        # Resolve the inbound trace context (kept local — not set on the shared
+        # client to avoid race conditions across concurrent requests).
+        # Order: W3C traceparent -> legacy X-Trace-ID -> generated (spec 005).
+        trace_id: str = resolve_trace_id(
+            request.headers.get("traceparent"),
+            request.headers.get("X-Trace-ID"),
+        )
 
         # Log request
         start_time = time.time()
@@ -103,13 +108,12 @@ class LogTideDjangoMiddleware:
         }
         if self.include_headers:
             metadata["headers"] = dict(request.headers)
-        if trace_id:
-            metadata["trace_id"] = trace_id
 
         self.client.info(
             self.service_name,
             f"{request.method} {request.path}",
             metadata,
+            trace_id=trace_id,
         )
 
     def _log_response(
@@ -128,17 +132,15 @@ class LogTideDjangoMiddleware:
         }
         if self.include_headers:
             metadata["response_headers"] = dict(response.items())
-        if trace_id:
-            metadata["trace_id"] = trace_id
 
         message = f"{request.method} {request.path} {response.status_code} ({duration_ms:.0f}ms)"
 
         if response.status_code >= 500:
-            self.client.error(self.service_name, message, metadata)
+            self.client.error(self.service_name, message, metadata, trace_id=trace_id)
         elif response.status_code >= 400:
-            self.client.warn(self.service_name, message, metadata)
+            self.client.warn(self.service_name, message, metadata, trace_id=trace_id)
         else:
-            self.client.info(self.service_name, message, metadata)
+            self.client.info(self.service_name, message, metadata, trace_id=trace_id)
 
     def _log_error(
         self,
@@ -154,12 +156,11 @@ class LogTideDjangoMiddleware:
             "duration_ms": round(duration_ms, 2),
             "exception": serialize_exception(error),
         }
-        if trace_id:
-            metadata["trace_id"] = trace_id
         self.client.error(
             self.service_name,
             f"Request error: {request.method} {request.path} - {str(error)}",
             metadata,
+            trace_id=trace_id,
         )
 
     def _get_client_ip(self, request: HttpRequest) -> str | None:

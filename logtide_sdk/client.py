@@ -6,7 +6,6 @@ import json
 import re
 import time
 import traceback
-import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from threading import Event, Lock, Thread, Timer
@@ -18,6 +17,7 @@ from logtide_sdk.circuit_breaker import CircuitBreaker
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
+from logtide_sdk.tracecontext import generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
     AggregatedStatsResponse,
@@ -202,7 +202,7 @@ class LogTideClient:
             with client.with_new_trace_id():
                 client.info('worker', 'Background job')
         """
-        with self.with_trace_id(str(uuid.uuid4())):
+        with self.with_trace_id(generate_trace_id()):
             yield
 
     # -----------------------------------------------------------------------
@@ -223,7 +223,7 @@ class LogTideClient:
         # Inject trace ID
         if entry.trace_id is None:
             if self.options.auto_trace_id:
-                entry.trace_id = str(uuid.uuid4())
+                entry.trace_id = generate_trace_id()
             elif self._trace_id is not None:
                 entry.trace_id = self._trace_id
 
@@ -255,7 +255,15 @@ class LogTideClient:
         if should_flush:
             self.flush()
 
-    def debug(self, service: str, message: str, metadata: dict[str, Any] | None = None) -> None:
+    def debug(
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+    ) -> None:
         """Log a DEBUG-level message."""
         self.log(
             LogEntry(
@@ -263,10 +271,20 @@ class LogTideClient:
                 level=LogLevel.DEBUG,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
-    def info(self, service: str, message: str, metadata: dict[str, Any] | None = None) -> None:
+    def info(
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+    ) -> None:
         """Log an INFO-level message."""
         self.log(
             LogEntry(
@@ -274,10 +292,20 @@ class LogTideClient:
                 level=LogLevel.INFO,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
-    def warn(self, service: str, message: str, metadata: dict[str, Any] | None = None) -> None:
+    def warn(
+        self,
+        service: str,
+        message: str,
+        metadata: dict[str, Any] | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+    ) -> None:
         """Log a WARN-level message."""
         self.log(
             LogEntry(
@@ -285,6 +313,8 @@ class LogTideClient:
                 level=LogLevel.WARN,
                 message=message,
                 metadata=metadata or {},
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
@@ -293,6 +323,9 @@ class LogTideClient:
         service: str,
         message: str,
         metadata_or_error: dict[str, Any] | Exception | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """
         Log an ERROR-level message.
@@ -309,6 +342,8 @@ class LogTideClient:
                 level=LogLevel.ERROR,
                 message=message,
                 metadata=metadata,
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 
@@ -317,6 +352,9 @@ class LogTideClient:
         service: str,
         message: str,
         metadata_or_error: dict[str, Any] | Exception | None = None,
+        *,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> None:
         """
         Log a CRITICAL-level message.
@@ -333,6 +371,8 @@ class LogTideClient:
                 level=LogLevel.CRITICAL,
                 message=message,
                 metadata=metadata,
+                trace_id=trace_id,
+                span_id=span_id,
             )
         )
 

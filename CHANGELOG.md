@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.2] - 2026-06-11
+
+### Added
+
+- W3C Trace Context support (`logtide_sdk.tracecontext`): `parse_traceparent`, `format_traceparent`, `generate_trace_id`, `generate_span_id`, `resolve_trace_id` — all exported from the package root
+- All log methods (sync and async) accept keyword-only `trace_id` and `span_id`, sent as top-level fields
+- `LogEntry.span_id` field, serialized as top-level `span_id`
+
+### Changed
+
+- **Middleware (Flask, Django, Starlette/FastAPI) now resolve the inbound trace context per the W3C spec**: `traceparent` header first, legacy `X-Trace-ID` as deprecated fallback, otherwise a new W3C trace ID is generated. The resolved trace ID is sent as the top-level `trace_id` field instead of `metadata["trace_id"]`, so trace correlation in the platform UI now works for middleware logs
+- Auto-generated trace IDs (`auto_trace_id`, `with_new_trace_id`) are now 32-char lowercase-hex W3C IDs instead of UUIDs
+
 ## [0.9.1] - 2026-05-29
 
 ### Fixed

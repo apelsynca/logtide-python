@@ -1,6 +1,14 @@
 """LogTide SDK - Official Python SDK for LogTide."""
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.tracecontext import (
+    TraceContext,
+    format_traceparent,
+    generate_span_id,
+    generate_trace_id,
+    parse_traceparent,
+    resolve_trace_id,
+)
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import BufferFullError, CircuitBreakerOpenError, LogTideError
 from logtide_sdk.handler import LogTideHandler
@@ -41,6 +49,12 @@ __all__ = [
     "LogsResponse",
     "PayloadLimitsOptions",
     "QueryOptions",
+    "TraceContext",
+    "format_traceparent",
+    "generate_span_id",
+    "generate_trace_id",
+    "parse_traceparent",
+    "resolve_trace_id",
     "serialize_exception",
 ]
 
