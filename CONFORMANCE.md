@@ -26,8 +26,8 @@ why a scenario does not apply. TODO entries are tracked work.
 | C18 | timestamp fidelity: time reflects capture, not delivery | ✅ | time stamped at LogEntry creation (`models.py`) |
 | C20 | scope isolation across concurrent requests | ✅ | `tests/middleware/test_trace_propagation.py` (isolated scopes), `tests/test_scope.py` (async tasks) |
 | C21 | breadcrumb ring buffer eviction, oldest first | ✅ | `tests/test_scope.py` (ring buffer) |
-| C22 | beforeSend can mutate or drop entries | TODO | beforeSend hook not implemented |
-| C23 | sampling: rate 0 sends nothing (logs) / no-op spans (traces) | TODO | sampling not implemented |
+| C22 | beforeSend can mutate or drop entries | ✅ | `tests/test_hooks.py` |
+| C23 | sampling: rate 0 sends nothing (logs) / no-op spans (traces) | ✅ (logs) | `tests/test_hooks.py`; trace sampling pending span support |
 | C24 | OTLP span export with service.name resource | TODO | span export: planned via OpenTelemetry exporter preset |
 | C25 | outbound traceparent injection on instrumented HTTP clients | TODO | outbound traceparent helper not implemented |
 | C26 | log/trace correlation: active span ids on entries | partial | scope trace context applied to entries; no span manager |
