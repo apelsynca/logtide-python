@@ -27,9 +27,9 @@ why a scenario does not apply. TODO entries are tracked work.
 | C20 | scope isolation across concurrent requests | ✅ | `tests/middleware/test_trace_propagation.py` (isolated scopes), `tests/test_scope.py` (async tasks) |
 | C21 | breadcrumb ring buffer eviction, oldest first | ✅ | `tests/test_scope.py` (ring buffer) |
 | C22 | beforeSend can mutate or drop entries | ✅ | `tests/test_hooks.py` |
-| C23 | sampling: rate 0 sends nothing (logs) / no-op spans (traces) | ✅ (logs) | `tests/test_hooks.py`; trace sampling pending span support |
-| C24 | OTLP span export with service.name resource | TODO | span export: planned via OpenTelemetry exporter preset |
+| C23 | sampling: rate 0 sends nothing (logs) / no-op spans (traces) | ✅ | `tests/test_hooks.py` (logs), `tests/test_otel.py` (traces) |
+| C24 | OTLP span export with service.name resource | ✅ | `tests/test_otel.py` (`logtide_sdk.otel`, extra `[otel]`) |
 | C25 | outbound traceparent injection on instrumented HTTP clients | TODO | outbound traceparent helper not implemented |
-| C26 | log/trace correlation: active span ids on entries | partial | scope trace context applied to entries; no span manager |
+| C26 | log/trace correlation: active span ids on entries | ✅ | `tests/test_otel.py` (logs inside a span) |
 | C27 | middleware error capture rethrows after logging | ✅ | middleware re-raise after logging (`middleware/*.py`) |
 | C28 | logging-bridge level mapping and scope context | ✅ | `tests/test_structlog.py`, `handler.py` stdlib mapping |
