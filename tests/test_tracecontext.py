@@ -90,3 +90,74 @@ def test_resolve_trace_id_falls_back_to_legacy_header():
 def test_resolve_trace_id_generates_when_absent():
     trace_id = resolve_trace_id(None, None)
     assert re.fullmatch(r"[0-9a-f]{32}", trace_id)
+
+
+# ----------------------------------------------- outbound injection (C25)
+
+
+def test_inject_traceparent_from_scope():
+    from logtide_sdk.scope import push_scope
+    from logtide_sdk.tracecontext import inject_traceparent
+
+    with push_scope() as scope:
+        scope.set_trace_context(VALID_TRACE_ID, VALID_SPAN_ID)
+        headers: dict[str, str] = {}
+        inject_traceparent(headers)
+
+    assert headers["traceparent"] == f"00-{VALID_TRACE_ID}-{VALID_SPAN_ID}-01"
+
+
+def test_inject_traceparent_generates_span_id_when_scope_has_none():
+    from logtide_sdk.scope import push_scope
+    from logtide_sdk.tracecontext import inject_traceparent
+
+    with push_scope() as scope:
+        scope.set_trace_context(VALID_TRACE_ID)
+        headers: dict[str, str] = {}
+        inject_traceparent(headers)
+
+    parsed = parse_traceparent(headers["traceparent"])
+    assert parsed is not None
+    assert parsed.trace_id == VALID_TRACE_ID
+    assert re.fullmatch(r"[0-9a-f]{16}", parsed.span_id)
+
+
+def test_inject_traceparent_noop_without_trace_context():
+    from logtide_sdk.scope import push_scope
+    from logtide_sdk.tracecontext import inject_traceparent
+
+    with push_scope():
+        headers: dict[str, str] = {}
+        inject_traceparent(headers)
+
+    assert "traceparent" not in headers
+
+
+def test_inject_traceparent_does_not_override_existing():
+    from logtide_sdk.scope import push_scope
+    from logtide_sdk.tracecontext import inject_traceparent
+
+    with push_scope() as scope:
+        scope.set_trace_context(VALID_TRACE_ID, VALID_SPAN_ID)
+        headers = {"traceparent": "00-" + "a" * 32 + "-" + "b" * 16 + "-01"}
+        inject_traceparent(headers)
+
+    assert headers["traceparent"].startswith("00-" + "a" * 32)
+
+
+def test_inject_traceparent_prefers_active_span():
+    from logtide_sdk.scope import push_scope
+    from logtide_sdk.tracecontext import (
+        inject_traceparent,
+        register_active_context_provider,
+    )
+
+    try:
+        register_active_context_provider(lambda: ("c" * 32, "d" * 16))
+        with push_scope() as scope:
+            scope.set_trace_context(VALID_TRACE_ID, VALID_SPAN_ID)
+            headers: dict[str, str] = {}
+            inject_traceparent(headers)
+        assert headers["traceparent"] == "00-" + "c" * 32 + "-" + "d" * 16 + "-01"
+    finally:
+        register_active_context_provider(None)

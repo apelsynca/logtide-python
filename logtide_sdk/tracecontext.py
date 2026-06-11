@@ -22,6 +22,7 @@ __all__ = [
     "generate_span_id",
     "parse_traceparent",
     "format_traceparent",
+    "inject_traceparent",
     "resolve_trace_id",
 ]
 
@@ -123,3 +124,35 @@ def active_trace_context() -> tuple[str | None, str | None]:
         return _active_context_provider()
     except Exception:
         return None, None
+
+
+def inject_traceparent(headers) -> None:
+    """Inject a W3C ``traceparent`` header for an outbound HTTP call (C25).
+
+    Source order: active span (when OTel tracing is configured) -> current
+    scope's trace context. A scope without a span id gets a fresh one. Does
+    nothing when no trace context is active or the header is already set.
+
+    Works with any mutable mapping (``requests``/``httpx`` headers dicts)::
+
+        headers = {}
+        inject_traceparent(headers)
+        requests.get(url, headers=headers)
+    """
+    if "traceparent" in headers:
+        return
+
+    trace_id, span_id = active_trace_context()
+    if trace_id is None:
+        from logtide_sdk.scope import get_current_scope  # local: avoid cycle
+
+        scope = get_current_scope()
+        trace_id = scope.trace_id
+        span_id = scope.span_id
+
+    if trace_id is None:
+        return
+    if span_id is None:
+        span_id = generate_span_id()
+
+    headers[TRACEPARENT_HEADER] = format_traceparent(trace_id, span_id)
