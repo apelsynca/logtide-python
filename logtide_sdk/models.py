@@ -1,5 +1,6 @@
 """Data models for LogTide SDK."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -79,8 +80,12 @@ class ClientOptions:
     payload_limits: PayloadLimitsOptions | None = None
     dsn: str | None = None
     service: str | None = None
+    before_send: Callable[["LogEntry"], "LogEntry | None"] | None = None
+    sample_rate: float = 1.0
 
     def __post_init__(self) -> None:
+        if not 0.0 <= self.sample_rate <= 1.0:
+            raise ValueError("sample_rate must be between 0.0 and 1.0")
         if self.dsn:
             parts = parse_dsn(self.dsn)
             if not self.api_url:

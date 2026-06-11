@@ -4,5 +4,5 @@ Kept in its own module (instead of ``__init__``) so internal modules can
 import it without circular imports. Bump together with ``pyproject.toml``.
 """
 
-VERSION = "0.9.5"
+VERSION = "0.9.6"
 SDK_NAME = "logtide-python"

@@ -3,6 +3,7 @@
 import asyncio
 import dataclasses
 import json
+import random
 import time
 from collections.abc import Callable
 from threading import Lock as ThreadingLock
@@ -175,6 +176,23 @@ class AsyncLogTideClient:
         # Stamp SDK identity (spec 003 §3); caller-provided value wins
         if "sdk" not in entry.metadata:
             entry.metadata["sdk"] = {"name": SDK_NAME, "version": VERSION}
+
+        # before_send hook: may mutate or drop the entry. A buggy hook must
+        # never lose the entry or raise to the caller.
+        if self.options.before_send is not None:
+            try:
+                result = self.options.before_send(entry)
+            except Exception as hook_error:
+                if self.options.debug:
+                    print(f"[LogTide] before_send raised, keeping entry: {hook_error}")
+            else:
+                if result is None:
+                    return
+                entry = result
+
+        # Sampling (applied after before_send, spec 005 §5)
+        if self.options.sample_rate < 1.0 and random.random() > self.options.sample_rate:
+            return
 
         self._apply_payload_limits(entry)
 
