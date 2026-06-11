@@ -91,3 +91,7 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # Re-runs after transient attestation/log failures must not die on
+          # files that already reached PyPI.
+          skip-existing: true
