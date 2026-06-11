@@ -1,6 +1,7 @@
 """LogTide SDK - Official Python SDK for LogTide."""
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.dsn import DsnParseError, DsnParts, parse_dsn
 from logtide_sdk.tracecontext import (
     TraceContext,
     format_traceparent,
@@ -31,7 +32,7 @@ try:
 except ImportError:
     pass
 
-__version__ = "0.9.1"
+from logtide_sdk._version import VERSION as __version__
 
 __all__ = [
     "AggregatedStatsOptions",
@@ -48,11 +49,14 @@ __all__ = [
     "LogTideHandler",
     "LogsResponse",
     "PayloadLimitsOptions",
+    "DsnParseError",
+    "DsnParts",
     "QueryOptions",
     "TraceContext",
     "format_traceparent",
     "generate_span_id",
     "generate_trace_id",
+    "parse_dsn",
     "parse_traceparent",
     "resolve_trace_id",
     "serialize_exception",

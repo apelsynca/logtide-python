@@ -21,6 +21,7 @@ from logtide_sdk.client import _process_value, serialize_exception
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
+from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.tracecontext import generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
@@ -164,6 +165,10 @@ class AsyncLogTideClient:
         if self.options.global_metadata:
             entry.metadata = {**self.options.global_metadata, **entry.metadata}
 
+        # Stamp SDK identity (spec 003 §3); caller-provided value wins
+        if "sdk" not in entry.metadata:
+            entry.metadata["sdk"] = {"name": SDK_NAME, "version": VERSION}
+
         self._apply_payload_limits(entry)
 
         should_flush = False
@@ -183,22 +188,42 @@ class AsyncLogTideClient:
         if should_flush:
             await self.flush()
 
+    def _resolve_call(
+        self,
+        service_or_message: str,
+        message_or_payload: Any,
+        payload: Any,
+    ) -> tuple[str, str, Any]:
+        """Support both call forms (spec 004 §3); see LogTideClient._resolve_call."""
+        if isinstance(message_or_payload, str):
+            return service_or_message, message_or_payload, payload
+        if self.options.service is None:
+            raise ValueError(
+                "No service configured: set ClientOptions.service to call "
+                "log methods with just a message, or pass (service, message)"
+            )
+        resolved_payload = message_or_payload if message_or_payload is not None else payload
+        return self.options.service, service_or_message, resolved_payload
+
     async def debug(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
         """Log a DEBUG-level message."""
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         await self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.DEBUG,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -206,20 +231,23 @@ class AsyncLogTideClient:
 
     async def info(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
         """Log an INFO-level message."""
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         await self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.INFO,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -227,20 +255,23 @@ class AsyncLogTideClient:
 
     async def warn(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
         """Log a WARN-level message."""
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         await self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.WARN,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -248,20 +279,23 @@ class AsyncLogTideClient:
 
     async def error(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | Exception | None = None,
         metadata_or_error: dict[str, Any] | Exception | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
         """Log an ERROR-level message. Accepts an Exception for automatic serialization."""
-        metadata = self._process_metadata_or_error(metadata_or_error)
+        service, resolved_message, payload = self._resolve_call(
+            service_or_message, message, metadata_or_error
+        )
+        metadata = self._process_metadata_or_error(payload)
         await self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.ERROR,
-                message=message,
+                message=resolved_message,
                 metadata=metadata,
                 trace_id=trace_id,
                 span_id=span_id,
@@ -270,20 +304,23 @@ class AsyncLogTideClient:
 
     async def critical(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | Exception | None = None,
         metadata_or_error: dict[str, Any] | Exception | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
         """Log a CRITICAL-level message. Accepts an Exception for automatic serialization."""
-        metadata = self._process_metadata_or_error(metadata_or_error)
+        service, resolved_message, payload = self._resolve_call(
+            service_or_message, message, metadata_or_error
+        )
+        metadata = self._process_metadata_or_error(payload)
         await self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.CRITICAL,
-                message=message,
+                message=resolved_message,
                 metadata=metadata,
                 trace_id=trace_id,
                 span_id=span_id,

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from logtide_sdk.dsn import parse_dsn
 from logtide_sdk.enums import LogLevel
 
 
@@ -54,10 +55,13 @@ class LogEntry:
 
 @dataclass
 class ClientOptions:
-    """Configuration options for LogTide client."""
+    """Configuration options for LogTide client.
 
-    api_url: str
-    api_key: str
+    Provide either ``dsn`` or ``api_url`` + ``api_key``.
+    """
+
+    api_url: str = ""
+    api_key: str = ""
     batch_size: int = 100
     flush_interval: int = 5000
     max_buffer_size: int = 10000
@@ -70,6 +74,20 @@ class ClientOptions:
     global_metadata: dict[str, Any] = field(default_factory=dict)
     auto_trace_id: bool = False
     payload_limits: PayloadLimitsOptions | None = None
+    dsn: str | None = None
+    service: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.dsn:
+            parts = parse_dsn(self.dsn)
+            if not self.api_url:
+                self.api_url = parts.api_url
+            if not self.api_key:
+                self.api_key = parts.api_key
+        if not self.api_url or not self.api_key:
+            raise ValueError(
+                "Either dsn or api_url + api_key must be provided to ClientOptions"
+            )
 
 
 @dataclass

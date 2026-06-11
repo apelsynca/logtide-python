@@ -17,6 +17,7 @@ from logtide_sdk.circuit_breaker import CircuitBreaker
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
+from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.tracecontext import generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
@@ -209,6 +210,30 @@ class LogTideClient:
     # Logging methods
     # -----------------------------------------------------------------------
 
+    def _resolve_call(
+        self,
+        service_or_message: str,
+        message_or_payload: Any,
+        payload: Any,
+    ) -> tuple[str, str, Any]:
+        """Support both call forms (spec 004 §3).
+
+        Legacy: (service, message, payload). New: (message, payload) with the
+        service taken from ClientOptions.service. The second positional
+        argument disambiguates: a string means legacy, anything else means
+        the new form (it is the payload).
+        """
+        if isinstance(message_or_payload, str):
+            return service_or_message, message_or_payload, payload
+        if self.options.service is None:
+            raise ValueError(
+                "No service configured: set ClientOptions.service to call "
+                "log methods with just a message, or pass (service, message)"
+            )
+        resolved_payload = message_or_payload if message_or_payload is not None else payload
+        return self.options.service, service_or_message, resolved_payload
+
+
     def log(self, entry: LogEntry) -> None:
         """
         Log a pre-built entry. Applies trace ID, global metadata, and
@@ -235,6 +260,10 @@ class LogTideClient:
         if self.options.global_metadata:
             entry.metadata = {**self.options.global_metadata, **entry.metadata}
 
+        # Stamp SDK identity (spec 003 §3); caller-provided value wins
+        if "sdk" not in entry.metadata:
+            entry.metadata["sdk"] = {"name": SDK_NAME, "version": VERSION}
+
         # Apply payload limits before buffering
         self._apply_payload_limits(entry)
 
@@ -257,20 +286,27 @@ class LogTideClient:
 
     def debug(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
-        """Log a DEBUG-level message."""
+        """Log a DEBUG-level message.
+
+        Call as ``debug(message)`` / ``debug(message, metadata)`` with the
+        service from ClientOptions, or legacy ``debug(service, message)``.
+        """
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.DEBUG,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -278,20 +314,27 @@ class LogTideClient:
 
     def info(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
-        """Log an INFO-level message."""
+        """Log an INFO-level message.
+
+        Call as ``info(message)`` / ``info(message, metadata)`` with the
+        service from ClientOptions, or legacy ``info(service, message)``.
+        """
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.INFO,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -299,20 +342,27 @@ class LogTideClient:
 
     def warn(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | None = None,
         metadata: dict[str, Any] | None = None,
         *,
         trace_id: str | None = None,
         span_id: str | None = None,
     ) -> None:
-        """Log a WARN-level message."""
+        """Log a WARN-level message.
+
+        Call as ``warn(message)`` / ``warn(message, metadata)`` with the
+        service from ClientOptions, or legacy ``warn(service, message)``.
+        """
+        service, resolved_message, resolved_metadata = self._resolve_call(
+            service_or_message, message, metadata
+        )
         self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.WARN,
-                message=message,
-                metadata=metadata or {},
+                message=resolved_message,
+                metadata=resolved_metadata or {},
                 trace_id=trace_id,
                 span_id=span_id,
             )
@@ -320,8 +370,8 @@ class LogTideClient:
 
     def error(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | Exception | None = None,
         metadata_or_error: dict[str, Any] | Exception | None = None,
         *,
         trace_id: str | None = None,
@@ -335,12 +385,15 @@ class LogTideClient:
             message: Log message
             metadata_or_error: Metadata dict or Exception (serialized automatically)
         """
-        metadata = self._process_metadata_or_error(metadata_or_error)
+        service, resolved_message, payload = self._resolve_call(
+            service_or_message, message, metadata_or_error
+        )
+        metadata = self._process_metadata_or_error(payload)
         self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.ERROR,
-                message=message,
+                message=resolved_message,
                 metadata=metadata,
                 trace_id=trace_id,
                 span_id=span_id,
@@ -349,8 +402,8 @@ class LogTideClient:
 
     def critical(
         self,
-        service: str,
-        message: str,
+        service_or_message: str,
+        message: str | dict[str, Any] | Exception | None = None,
         metadata_or_error: dict[str, Any] | Exception | None = None,
         *,
         trace_id: str | None = None,
@@ -364,12 +417,15 @@ class LogTideClient:
             message: Log message
             metadata_or_error: Metadata dict or Exception (serialized automatically)
         """
-        metadata = self._process_metadata_or_error(metadata_or_error)
+        service, resolved_message, payload = self._resolve_call(
+            service_or_message, message, metadata_or_error
+        )
+        metadata = self._process_metadata_or_error(payload)
         self.log(
             LogEntry(
                 service=service,
                 level=LogLevel.CRITICAL,
-                message=message,
+                message=resolved_message,
                 metadata=metadata,
                 trace_id=trace_id,
                 span_id=span_id,

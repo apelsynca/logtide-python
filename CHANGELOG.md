@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] - 2026-06-11
+
+### Added
+
+- DSN support: `ClientOptions(dsn="https://lp_key@host[/path]")` (plus `parse_dsn` / `DsnParseError` exported from the package root). Explicit `api_url` + `api_key` keep working; a malformed DSN raises at init time
+- `ClientOptions.service`: configure the service once and call log methods with just the message — `client.info("user logged in")`, `client.error("boom", exc)`. The legacy `(service, message)` form keeps working
+- Every entry now carries `metadata.sdk = {"name": "logtide-python", "version": ...}` (caller-provided `sdk` key wins)
+
+### Fixed
+
+- `logtide_sdk.__version__` was stale (0.9.1); version now has a single runtime source (`logtide_sdk._version`)
+
 ## [0.9.2] - 2026-06-11
 
 ### Added
