@@ -14,6 +14,8 @@ from dataclasses import dataclass
 
 __all__ = [
     "TraceContext",
+    "active_trace_context",
+    "register_active_context_provider",
     "TRACEPARENT_HEADER",
     "LEGACY_TRACE_HEADER",
     "generate_trace_id",
@@ -97,3 +99,27 @@ def resolve_trace_id(traceparent: str | None, legacy: str | None) -> str:
     if legacy:
         return legacy
     return generate_trace_id()
+
+
+# --------------------------------------------------- active span lookup
+
+# Optional provider returning the active span's (trace_id, span_id), used in
+# the trace-context resolution order (explicit -> active span -> scope).
+# Registered by logtide_sdk.otel when OpenTelemetry tracing is configured.
+_active_context_provider = None
+
+
+def register_active_context_provider(provider) -> None:
+    """Register (or clear, with None) the active-span context provider."""
+    global _active_context_provider
+    _active_context_provider = provider
+
+
+def active_trace_context() -> tuple[str | None, str | None]:
+    """Return the active span's (trace_id, span_id), or (None, None)."""
+    if _active_context_provider is None:
+        return None, None
+    try:
+        return _active_context_provider()
+    except Exception:
+        return None, None

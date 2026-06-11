@@ -25,7 +25,7 @@ from logtide_sdk.json_encoder import logtide_json_dumps
 from logtide_sdk._retry import classify_failure
 from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.scope import get_current_scope
-from logtide_sdk.tracecontext import generate_trace_id
+from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
     AggregatedStatsResponse,
@@ -159,9 +159,18 @@ class AsyncLogTideClient:
         if entry.metadata is None:
             entry.metadata = {}
 
+        # Active-span trace context (resolution order per spec 005 §4:
+        # explicit -> active span -> scope -> client context/generation).
+        if entry.trace_id is None:
+            active_trace, active_span = active_trace_context()
+            if active_trace is not None:
+                entry.trace_id = active_trace
+                if entry.span_id is None:
+                    entry.span_id = active_span
+
         # Merge the current scope (tags, user, breadcrumbs, session, trace ctx).
         # Runs before trace-id injection so the scope's trace context wins
-        # over auto-generation (resolution order per spec 005 §4).
+        # over auto-generation.
         get_current_scope().apply_to_entry(entry)
 
         if entry.trace_id is None:

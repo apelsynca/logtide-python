@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "logtide-sdk"
-version = "0.9.6"
+version = "0.9.7"
 description = "Official Python SDK for LogTide - Self-hosted log management with async client, logging integration, batching, retry, circuit breaker, and middleware"
 readme = "README.md"
 license = { text = "MIT" }
@@ -51,6 +51,7 @@ Issues = "https://github.com/logtide-dev/logtide-python/issues"
 
 [project.optional-dependencies]
 async = ["aiohttp>=3.9.0"]
+otel = ["opentelemetry-sdk>=1.20.0", "opentelemetry-exporter-otlp-proto-http>=1.20.0"]
 starlette = ["starlette>=0.27.0"]
 flask = ["flask>=2.0.0"]
 django = ["django>=3.2.0"]
