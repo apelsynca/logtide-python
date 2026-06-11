@@ -13,6 +13,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.scope import push_scope
 from logtide_sdk.tracecontext import resolve_trace_id
 
 
@@ -73,27 +74,32 @@ class LogTideDjangoMiddleware:
             request.headers.get("X-Trace-ID"),
         )
 
-        # Log request
-        start_time = time.time()
-        if self.log_requests:
-            self._log_request(request, trace_id)
+        # Per-request scope isolation: breadcrumbs/user/tags set inside the
+        # view stay local to this request (spec 004 §6).
+        with push_scope() as scope:
+            scope.set_trace_context(trace_id)
 
-        # Process request
-        try:
-            response = self.get_response(request)
-        except Exception as e:
-            # Log error
-            if self.log_errors:
+            # Log request
+            start_time = time.time()
+            if self.log_requests:
+                self._log_request(request, trace_id)
+
+            # Process request
+            try:
+                response = self.get_response(request)
+            except Exception as e:
+                # Log error
+                if self.log_errors:
+                    duration_ms = (time.time() - start_time) * 1000
+                    self._log_error(request, e, duration_ms, trace_id)
+                raise
+
+            # Log response
+            if self.log_responses:
                 duration_ms = (time.time() - start_time) * 1000
-                self._log_error(request, e, duration_ms, trace_id)
-            raise
+                self._log_response(request, response, duration_ms, trace_id)
 
-        # Log response
-        if self.log_responses:
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_response(request, response, duration_ms, trace_id)
-
-        return response
+            return response
 
     def _should_skip(self, path: str) -> bool:
         """Check if path should be skipped."""

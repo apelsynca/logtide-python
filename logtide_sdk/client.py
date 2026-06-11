@@ -18,6 +18,7 @@ from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
 from logtide_sdk._version import SDK_NAME, VERSION
+from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
@@ -245,16 +246,21 @@ class LogTideClient:
         if self._closed:
             return
 
-        # Inject trace ID
+        # Coerce None to {} so unpacking never raises TypeError
+        if entry.metadata is None:
+            entry.metadata = {}
+
+        # Merge the current scope (tags, user, breadcrumbs, session, trace ctx).
+        # Runs before trace-id injection so the scope's trace context wins
+        # over auto-generation (resolution order per spec 005 §4).
+        get_current_scope().apply_to_entry(entry)
+
+        # Inject trace ID (last resort: client-level context or generation)
         if entry.trace_id is None:
             if self.options.auto_trace_id:
                 entry.trace_id = generate_trace_id()
             elif self._trace_id is not None:
                 entry.trace_id = self._trace_id
-
-        # Coerce None to {} so unpacking never raises TypeError
-        if entry.metadata is None:
-            entry.metadata = {}
 
         # Merge global metadata (entry metadata wins on collision)
         if self.options.global_metadata:

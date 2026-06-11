@@ -2,6 +2,18 @@
 
 from logtide_sdk.client import LogTideClient, serialize_exception
 from logtide_sdk.dsn import DsnParseError, DsnParts, parse_dsn
+from logtide_sdk.scope import (
+    Breadcrumb,
+    Scope,
+    User,
+    add_breadcrumb,
+    get_current_scope,
+    push_scope,
+    set_extra,
+    set_session_id,
+    set_tag,
+    set_user,
+)
 from logtide_sdk.tracecontext import (
     TraceContext,
     format_traceparent,
@@ -36,6 +48,16 @@ from logtide_sdk._version import VERSION as __version__
 
 __all__ = [
     "AggregatedStatsOptions",
+    "Breadcrumb",
+    "Scope",
+    "User",
+    "add_breadcrumb",
+    "get_current_scope",
+    "push_scope",
+    "set_extra",
+    "set_session_id",
+    "set_tag",
+    "set_user",
     "AggregatedStatsResponse",
     "BufferFullError",
     "CircuitBreakerOpenError",

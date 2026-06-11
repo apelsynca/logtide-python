@@ -12,6 +12,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.scope import get_current_scope, push_scope
 from logtide_sdk.tracecontext import resolve_trace_id
 
 
@@ -71,6 +72,7 @@ class LogTideFlaskMiddleware:
 
         app.before_request(self._before_request)
         app.after_request(self._after_request)
+        app.teardown_request(self._teardown_request)
         app.errorhandler(Exception)(self._error_handler)
 
     def _should_skip(self, path: str) -> bool:
@@ -95,6 +97,13 @@ class LogTideFlaskMiddleware:
         """Log incoming request."""
         if self._should_skip(request.path):
             return
+
+        # Per-request scope isolation: breadcrumbs/user/tags set inside the
+        # handler stay local to this request (spec 004 §6).
+        scope_cm = push_scope()
+        g._logtide_scope_cm = scope_cm
+        scope = scope_cm.__enter__()
+        scope.set_trace_context(self._trace_id())
 
         g.logtide_start_time = time.time()
 
@@ -178,6 +187,12 @@ class LogTideFlaskMiddleware:
             )
 
         return response
+
+    def _teardown_request(self, exc: BaseException | None = None) -> None:
+        """Restore the outer scope at the end of the request."""
+        scope_cm = g.pop("_logtide_scope_cm", None)
+        if scope_cm is not None:
+            scope_cm.__exit__(None, None, None)
 
     def _error_handler(self, error: Exception) -> Response:
         """Log error and return a response.

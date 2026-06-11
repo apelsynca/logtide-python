@@ -29,6 +29,7 @@ class LogEntry:
     metadata: dict[str, Any] = field(default_factory=dict)
     trace_id: str | None = None
     span_id: str | None = None
+    session_id: str | None = None
 
     def __post_init__(self) -> None:
         """Initialize default values."""
@@ -50,6 +51,8 @@ class LogEntry:
             result["trace_id"] = self.trace_id
         if self.span_id is not None:
             result["span_id"] = self.span_id
+        if self.session_id is not None:
+            result["session_id"] = self.session_id
         return result
 
 

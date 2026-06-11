@@ -15,6 +15,7 @@ except ImportError:
     )
 
 from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.scope import push_scope
 from logtide_sdk.tracecontext import resolve_trace_id
 
 
@@ -88,24 +89,29 @@ class LogTideStarletteMiddleware(BaseHTTPMiddleware):
             request.headers.get("x-trace-id"),
         )
 
-        start_time = time.time()
+        # Per-request scope isolation: breadcrumbs/user/tags set inside the
+        # handler stay local to this request (spec 004 §6).
+        with push_scope() as scope:
+            scope.set_trace_context(trace_id)
 
-        if self.log_requests:
-            self._log_request(request, trace_id)
+            start_time = time.time()
 
-        try:
-            response = await call_next(request)
-        except Exception as e:
-            if self.log_errors:
+            if self.log_requests:
+                self._log_request(request, trace_id)
+
+            try:
+                response = await call_next(request)
+            except Exception as e:
+                if self.log_errors:
+                    duration_ms = (time.time() - start_time) * 1000
+                    self._log_error(request, e, duration_ms, trace_id)
+                raise
+
+            if self.log_responses:
                 duration_ms = (time.time() - start_time) * 1000
-                self._log_error(request, e, duration_ms, trace_id)
-            raise
+                self._log_response(request, response, duration_ms, trace_id)
 
-        if self.log_responses:
-            duration_ms = (time.time() - start_time) * 1000
-            self._log_response(request, response, duration_ms, trace_id)
-
-        return response
+            return response
 
     def _should_skip(self, path: str) -> bool:
         return path in self.skip_paths

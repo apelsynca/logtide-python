@@ -175,3 +175,78 @@ def test_django_generates_trace_id_when_absent(django_middleware, client):
     for entry in logged:
         assert entry.trace_id is not None
         assert W3C_TRACE.fullmatch(entry.trace_id), entry.trace_id
+
+
+# --------------------------------------------------- per-request scope
+
+
+def test_flask_requests_get_isolated_scopes(client):
+    flask = pytest.importorskip("flask")
+    from logtide_sdk.middleware.flask import LogTideFlaskMiddleware
+    from logtide_sdk.scope import add_breadcrumb, set_user
+
+    app = flask.Flask("scope-test")
+
+    @app.route("/buy")
+    def buy():
+        set_user({"id": "u_1"})
+        add_breadcrumb({"message": "added to cart"})
+        client.error("svc", "purchase failed")
+        return "ok"
+
+    @app.route("/browse")
+    def browse():
+        client.info("svc", "browsing")
+        return "ok"
+
+    LogTideFlaskMiddleware(app, client=client, service_name="flask-scope")
+
+    app.test_client().get("/buy")
+    app.test_client().get("/browse")
+
+    by_message = {e.message: e for e in client._buffer}
+    failed = by_message["purchase failed"]
+    assert failed.metadata["user"] == {"id": "u_1"}
+    assert failed.metadata["breadcrumbs"][0]["message"] == "added to cart"
+
+    browsing = by_message["browsing"]
+    assert "user" not in browsing.metadata
+    assert "breadcrumbs" not in browsing.metadata
+
+
+def test_starlette_requests_get_isolated_scopes(client):
+    pytest.importorskip("starlette")
+    from starlette.applications import Starlette
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+    from starlette.testclient import TestClient
+
+    from logtide_sdk.middleware.starlette import LogTideStarletteMiddleware
+    from logtide_sdk.scope import add_breadcrumb, set_user
+
+    async def buy(request):
+        set_user({"id": "u_9"})
+        add_breadcrumb({"message": "checkout"})
+        client.error("svc", "purchase failed")
+        return PlainTextResponse("ok")
+
+    async def browse(request):
+        client.info("svc", "browsing")
+        return PlainTextResponse("ok")
+
+    app = Starlette(routes=[Route("/buy", buy), Route("/browse", browse)])
+    app.add_middleware(
+        LogTideStarletteMiddleware, client=client, service_name="starlette-scope"
+    )
+    tc = TestClient(app)
+    tc.get("/buy")
+    tc.get("/browse")
+
+    by_message = {e.message: e for e in client._buffer}
+    failed = by_message["purchase failed"]
+    assert failed.metadata["user"] == {"id": "u_9"}
+    assert failed.metadata["breadcrumbs"][0]["message"] == "checkout"
+
+    browsing = by_message["browsing"]
+    assert "user" not in browsing.metadata
+    assert "breadcrumbs" not in browsing.metadata

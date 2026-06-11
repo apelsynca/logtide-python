@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.4] - 2026-06-11
+
+### Added
+
+- **Scope API** (`logtide_sdk.scope`, exported from the package root): per-request/per-task context built on `contextvars` — `push_scope()`, `get_current_scope()`, `set_tag`, `set_extra`, `set_user`, `set_session_id`, `add_breadcrumb`. Scope state (tags, user, breadcrumbs, session, trace context) is merged into every captured entry; entry-level values win
+- **Breadcrumbs**: ring buffer (default 100, oldest evicted), attached as `metadata.breadcrumbs`
+- **User context** (`User`) attached as `metadata.user`; `session_id` sent as a top-level field (`LogEntry.session_id`)
+- **Per-request scope isolation in all middleware** (Flask, Django, Starlette/FastAPI): breadcrumbs/user/tags set inside a handler stay local to that request, and handler logs inherit the request's trace context
+
+### Changed
+
+- Trace-id resolution order in `log()` now follows the spec: explicit value → scope trace context → client context/auto-generation
+
 ## [0.9.3] - 2026-06-11
 
 ### Added
