@@ -21,6 +21,7 @@ from logtide_sdk.client import _process_value, serialize_exception
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
+from logtide_sdk._retry import classify_failure
 from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import generate_trace_id
@@ -530,10 +531,21 @@ class AsyncLogTideClient:
                 attempt += 1
                 self._circuit_breaker.record_failure()
 
+                retryable, retry_after = classify_failure(e)
+
                 with self._metrics_lock:
                     self._metrics.errors += 1
-                    if attempt <= self.options.max_retries:
+                    if retryable and attempt <= self.options.max_retries:
                         self._metrics.retries += 1
+
+                # Permanent client errors (4xx except 408/429) will not become
+                # valid by retrying: drop the batch after the first attempt.
+                if not retryable:
+                    if self.options.debug:
+                        print(f"[LogTide] Non-retryable error, dropping batch: {e}")
+                    with self._metrics_lock:
+                        self._metrics.logs_dropped += len(logs)
+                    break
 
                 if attempt > self.options.max_retries:
                     if self.options.debug:
@@ -545,7 +557,8 @@ class AsyncLogTideClient:
                 if self.options.debug:
                     print(f"[LogTide] Retry {attempt}/{self.options.max_retries} in {delay}s")
 
-                await asyncio.sleep(delay)
+                # A server-provided Retry-After overrides the computed backoff
+                await asyncio.sleep(retry_after if retry_after is not None else delay)
                 delay *= 2
 
         if self._circuit_breaker.state == CircuitState.OPEN and state_before != CircuitState.OPEN:
