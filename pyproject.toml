@@ -60,6 +60,7 @@ fastapi = ["fastapi>=0.100.0", "starlette>=0.27.0"]
 tests = [
   "aiohttp>=3.9.0",
   "starlette>=0.27.0",
+  "httpx>=0.24.0",
   "flask>=2.0.0",
   "django>=3.2.0",
   "fastapi>=0.100.0",
