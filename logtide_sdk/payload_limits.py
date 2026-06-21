@@ -4,8 +4,9 @@ from typing import Any
 from logtide_sdk.models import PayloadLimitsOptions
 
 
-def process_value(value: Any, path: str, lim: PayloadLimitsOptions) -> Any:
-    """Recursively apply payload limits to a metadata value."""
+def apply_payload_limits(value: Any, path: str, lim: PayloadLimitsOptions) -> Any:
+    """Recursively apply payload limits and hide base64 to a metadata value."""
+
     if value is None:
         return
 
@@ -21,10 +22,10 @@ def process_value(value: Any, path: str, lim: PayloadLimitsOptions) -> Any:
         return value
 
     if isinstance(value, dict):
-        return {k: process_value(v, f"{path}.{k}", lim) for k, v in value.items()}
+        return {k: apply_payload_limits(v, f"{path}.{k}", lim) for k, v in value.items()}
 
     if isinstance(value, list):
-        return [process_value(v, f"{path}[{i}]", lim) for i, v in enumerate(value)]
+        return [apply_payload_limits(v, f"{path}[{i}]", lim) for i, v in enumerate(value)]
 
     return value
 

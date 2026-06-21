@@ -34,7 +34,7 @@ from logtide_sdk.models import (
     PayloadLimitsOptions,
     QueryOptions,
 )
-from logtide_sdk.process import process_value
+from logtide_sdk.payload_limits import apply_payload_limits
 from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
@@ -618,7 +618,7 @@ class AsyncLogTideClient:
         if not entry.metadata:
             return
         lim = self._payload_limits
-        entry.metadata = process_value(entry.metadata, "root", lim)
+        entry.metadata = apply_payload_limits(entry.metadata, "root", lim)
 
         raw = logtide_json_dumps(entry)
         if len(raw.encode()) > lim.max_log_size:

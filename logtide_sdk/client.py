@@ -4,7 +4,6 @@ import atexit
 import dataclasses
 import json
 import random
-import re
 import time
 import traceback
 from collections.abc import Callable, Iterator
@@ -30,21 +29,13 @@ from logtide_sdk.models import (
     PayloadLimitsOptions,
     QueryOptions,
 )
+from logtide_sdk.payload_limits import apply_payload_limits
 from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
 # ---------------------------------------------------------------------------
 # Module-level helpers (importable by async_client and middleware)
 # ---------------------------------------------------------------------------
-
-_BASE64_RE = re.compile(r"^[A-Za-z0-9+/=]{100,}$")
-
-
-def _looks_like_base64(s: str) -> bool:
-    """Return True if the string looks like base64-encoded or data-URI data."""
-    if s.startswith("data:"):
-        return True
-    return bool(_BASE64_RE.match(s.replace("\n", "").replace("\r", "")))
 
 
 def serialize_exception(exc: BaseException) -> dict[str, Any]:
@@ -803,7 +794,7 @@ class LogTideClient:
             return
 
         lim = self._payload_limits
-        entry.metadata = _process_value(entry.metadata, "root", lim)
+        entry.metadata = apply_payload_limits(entry.metadata, "root", lim)
 
         # Enforce total entry size
         raw = logtide_json_dumps(entry)
