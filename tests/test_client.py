@@ -16,17 +16,8 @@ from logtide_sdk.json_encoder import logtide_json_dumps
 from logtide_sdk.models import LogEntry
 
 
-@pytest.fixture
-def client() -> LogTideClient:
-    return LogTideClient(
-        ClientOptions(
-            api_url="http://localhost:8080",
-            api_key="test_key",
-        )
-    )
-
-
 def test_client_initialization():
+    # leave it here as part of the test
     client = LogTideClient(
         ClientOptions(
             api_url="http://localhost:8080",
@@ -37,6 +28,19 @@ def test_client_initialization():
     assert client.options.api_url == "http://localhost:8080"
     assert client.options.api_key == "test_key"
     client.close()
+
+
+@pytest.fixture
+def options() -> ClientOptions:
+    return ClientOptions(
+        api_url="http://localhost:8080",
+        api_key="test_key",
+    )
+
+
+@pytest.fixture
+def client(options: ClientOptions) -> LogTideClient:
+    return LogTideClient(options)
 
 
 def test_logging_methods(client: LogTideClient):

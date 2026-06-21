@@ -8,9 +8,6 @@ from logtide_sdk import ClientOptions, LogTideClient
 from logtide_sdk.dsn import DsnParseError, parse_dsn
 
 
-# ---------------------------------------------------------------- DSN
-
-
 def test_parse_dsn_basic():
     parts = parse_dsn("https://lp_abc123@logs.example.com")
     assert parts.api_url == "https://logs.example.com"
@@ -45,14 +42,15 @@ def test_parse_dsn_rejects_invalid(dsn):
 
 def test_client_options_accepts_dsn():
     opts = ClientOptions(dsn="https://lp_abc@logs.example.com")
+
     assert opts.api_url == "https://logs.example.com"
     assert opts.api_key == "lp_abc"
 
 
 def test_client_options_requires_dsn_or_url_and_key():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Either dsn or api_url"):
         ClientOptions()
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Either dsn or api_url"):
         ClientOptions(api_url="http://localhost:8080")  # key missing
 
 
@@ -102,7 +100,7 @@ def test_per_call_service_still_works(client):
 def test_message_only_without_configured_service_raises():
     c = LogTideClient(ClientOptions(api_url="http://localhost:8080", api_key="lp_k"))
     try:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError):  # bad
             c.info("just a message")
     finally:
         c._closed = True

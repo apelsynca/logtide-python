@@ -51,7 +51,10 @@ Issues = "https://github.com/logtide-dev/logtide-python/issues"
 
 [project.optional-dependencies]
 async = ["aiohttp>=3.9.0"]
-otel = ["opentelemetry-sdk>=1.20.0", "opentelemetry-exporter-otlp-proto-http>=1.20.0"]
+otel = [
+  "opentelemetry-sdk>=1.20.0",
+  "opentelemetry-exporter-otlp-proto-http>=1.20.0",
+]
 starlette = ["starlette>=0.27.0"]
 flask = ["flask>=2.0.0"]
 django = ["django>=3.2.0"]
@@ -67,11 +70,11 @@ tests = [
   "fastapi>=0.100.0",
   "starlette>=0.27.0",
   "build",
-  "pytest>=8.3.5",
   "pytest-asyncio>=0.24.0",
   "pytest-cov>=5.0.0",
   "freezegun>=1.5.5",
   "pytest-mock>=3.14.1",
+  "pytest>=9.0.3",
 ]
 all = [{ include-group = "tests" }]
 

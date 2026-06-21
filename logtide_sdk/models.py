@@ -64,8 +64,9 @@ class ClientOptions:
     Provide either ``dsn`` or ``api_url`` + ``api_key``.
     """
 
-    api_url: str = ""
+    api_url: str = "https://api.logtide.dev"
     api_key: str = ""
+    # allow_empty_api_key: bool = False
     batch_size: int = 100
     flush_interval: int = 5000
     max_buffer_size: int = 10000
@@ -86,16 +87,14 @@ class ClientOptions:
     def __post_init__(self) -> None:
         if not 0.0 <= self.sample_rate <= 1.0:
             raise ValueError("sample_rate must be between 0.0 and 1.0")
+
         if self.dsn:
             parts = parse_dsn(self.dsn)
-            if not self.api_url:
-                self.api_url = parts.api_url
-            if not self.api_key:
-                self.api_key = parts.api_key
+            self.api_url = parts.api_url
+            self.api_key = parts.api_key
+
         if not self.api_url or not self.api_key:
-            raise ValueError(
-                "Either dsn or api_url + api_key must be provided to ClientOptions"
-            )
+            raise ValueError("Either dsn or api_url + api_key must be provided to ClientOptions")
 
 
 @dataclass
