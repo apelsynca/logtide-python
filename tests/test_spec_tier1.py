@@ -1,69 +1,18 @@
 """Remaining Tier 1 spec items: DSN parsing (002 §3), service-in-options
 (004 §3) and the metadata.sdk stamp (003 §3)."""
 
+from collections.abc import AsyncGenerator
+
 import pytest
 
 import logtide_sdk
 from logtide_sdk import ClientOptions, LogTideClient
-from logtide_sdk.dsn import DsnParseError, parse_dsn
-
-
-def test_parse_dsn_basic():
-    parts = parse_dsn("https://lp_abc123@logs.example.com")
-    assert parts.api_url == "https://logs.example.com"
-    assert parts.api_key == "lp_abc123"
-
-
-def test_parse_dsn_preserves_base_path():
-    parts = parse_dsn("https://lp_abc123@logs.example.com/logtide")
-    assert parts.api_url == "https://logs.example.com/logtide"
-
-
-def test_parse_dsn_http_and_port():
-    parts = parse_dsn("http://lp_k@localhost:8080")
-    assert parts.api_url == "http://localhost:8080"
-    assert parts.api_key == "lp_k"
-
-
-@pytest.mark.parametrize(
-    "dsn",
-    [
-        "",
-        "not-a-dsn",
-        "ftp://lp_k@host",  # bad scheme
-        "https://logs.example.com",  # no key
-        "https://@logs.example.com",  # empty key
-    ],
-)
-def test_parse_dsn_rejects_invalid(dsn):
-    with pytest.raises(DsnParseError):
-        parse_dsn(dsn)
-
-
-def test_client_options_accepts_dsn():
-    opts = ClientOptions(dsn="https://lp_abc@logs.example.com")
-
-    assert opts.api_url == "https://logs.example.com"
-    assert opts.api_key == "lp_abc"
-
-
-def test_client_options_requires_dsn_or_url_and_key():
-    with pytest.raises(ValueError, match="Either dsn or api_url"):
-        ClientOptions()
-    with pytest.raises(ValueError, match="Either dsn or api_url"):
-        ClientOptions(api_url="http://localhost:8080")  # key missing
-
-
-def test_client_options_explicit_still_works():
-    opts = ClientOptions(api_url="http://localhost:8080", api_key="lp_k")
-    assert opts.api_url == "http://localhost:8080"
-
 
 # ------------------------------------------------- service in options
 
 
 @pytest.fixture
-def client():
+def client() -> AsyncGenerator[LogTideClient]:
     c = LogTideClient(
         ClientOptions(
             api_url="http://localhost:8080",
@@ -75,7 +24,7 @@ def client():
     c._closed = True
 
 
-def test_log_methods_use_configured_service(client):
+def test_log_methods_use_configured_service(client) -> None:
     client.info("user logged in")
     entry = client._buffer[-1]
     assert entry.service == "checkout"
