@@ -1,3 +1,5 @@
+from typing import Literal
+
 import pytest
 
 from logtide_sdk.models import ClientOptions
@@ -17,7 +19,7 @@ def test_client_options_requires_dsn_or_url_and_key_by_default() -> None:
 @pytest.mark.parametrize("local_mode", ["if_unset_api_key", True])
 @pytest.mark.parametrize("api_key", [None, ""])
 def test_client_options_ignores_unset_api_key_if_set_unset_or_local_mode(
-    api_key: str, local_mode: str
+    api_key: str, local_mode: Literal["if_unset_api_key"] | bool
 ) -> None:
     ClientOptions(api_url="https://any.apiurl.dev", api_key=api_key, local_mode=local_mode)
 

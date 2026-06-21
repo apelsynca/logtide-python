@@ -65,7 +65,7 @@ class ClientOptions:
     """
 
     api_url: str = "https://api.logtide.dev"
-    api_key: str = ""
+    api_key: str | None = None
     local_mode: bool | Literal["if_unset_api_key"] = False
     batch_size: int = 100
     flush_interval: int = 5000
@@ -92,6 +92,15 @@ class ClientOptions:
             parts = parse_dsn(self.dsn)
             self.api_url = parts.api_url
             self.api_key = parts.api_key
+
+        if (
+            self.local_mode
+            and self.local_mode is not True
+            and self.local_mode != "if_unset_api_key"
+        ):
+            raise ValueError(
+                "Local mode cannot be positive value other then True or 'if_unset_api_key'"
+            )
 
         if self.local_mode is False and (not self.api_url or not self.api_key):
             raise ValueError("Either dsn or api_url + api_key must be provided to ClientOptions")

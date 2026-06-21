@@ -210,8 +210,15 @@ class LogTideClient:
         Args:
             entry: Log entry to send
         """
-        if self._closed:
+        # TODO: this method is long (lines of code), need to split it up
+
+        if self._closed or self.options.local_mode is True:
             return
+
+        if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
+            return
+
+        # if self.options
 
         # Coerce None to {} so unpacking never raises TypeError
         if entry.metadata is None:
@@ -263,9 +270,9 @@ class LogTideClient:
         if self.options.sample_rate < 1.0 and random.random() > self.options.sample_rate:
             return
 
-        # Apply payload limits before buffering
         self._apply_payload_limits(entry)
 
+        # TODO: move than logic from there
         should_flush = False
         with self._buffer_lock:
             if len(self._buffer) >= self.options.max_buffer_size:
