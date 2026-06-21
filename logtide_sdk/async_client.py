@@ -17,15 +17,13 @@ except ImportError:
         "Install it with: pip install logtide-sdk[async]"
     )
 
+from logtide_sdk._retry import classify_failure
+from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.circuit_breaker import CircuitBreaker
-from logtide_sdk.client import _process_value, serialize_exception
+from logtide_sdk.client import serialize_exception
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
-from logtide_sdk._retry import classify_failure
-from logtide_sdk._version import SDK_NAME, VERSION
-from logtide_sdk.scope import get_current_scope
-from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
     AggregatedStatsResponse,
@@ -36,6 +34,9 @@ from logtide_sdk.models import (
     PayloadLimitsOptions,
     QueryOptions,
 )
+from logtide_sdk.process import process_value
+from logtide_sdk.scope import get_current_scope
+from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
 
 class AsyncLogTideClient:
@@ -617,7 +618,7 @@ class AsyncLogTideClient:
         if not entry.metadata:
             return
         lim = self._payload_limits
-        entry.metadata = _process_value(entry.metadata, "root", lim)
+        entry.metadata = process_value(entry.metadata, "root", lim)
 
         raw = logtide_json_dumps(entry)
         if len(raw.encode()) > lim.max_log_size:

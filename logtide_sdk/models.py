@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from logtide_sdk.dsn import parse_dsn
 from logtide_sdk.enums import LogLevel
@@ -66,7 +66,7 @@ class ClientOptions:
 
     api_url: str = "https://api.logtide.dev"
     api_key: str = ""
-    # allow_empty_api_key: bool = False
+    local_mode: bool | Literal["if_unset_api_key"] = False
     batch_size: int = 100
     flush_interval: int = 5000
     max_buffer_size: int = 10000
@@ -93,7 +93,7 @@ class ClientOptions:
             self.api_url = parts.api_url
             self.api_key = parts.api_key
 
-        if not self.api_url or not self.api_key:
+        if self.local_mode is False and (not self.api_url or not self.api_key):
             raise ValueError("Either dsn or api_url + api_key must be provided to ClientOptions")
 
 

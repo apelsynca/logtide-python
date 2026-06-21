@@ -14,14 +14,12 @@ from typing import Any
 
 import requests
 
+from logtide_sdk._retry import classify_failure
+from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.circuit_breaker import CircuitBreaker
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
-from logtide_sdk._retry import classify_failure
-from logtide_sdk._version import SDK_NAME, VERSION
-from logtide_sdk.scope import get_current_scope
-from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 from logtide_sdk.models import (
     AggregatedStatsOptions,
     AggregatedStatsResponse,
@@ -32,6 +30,8 @@ from logtide_sdk.models import (
     PayloadLimitsOptions,
     QueryOptions,
 )
+from logtide_sdk.scope import get_current_scope
+from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
 # ---------------------------------------------------------------------------
 # Module-level helpers (importable by async_client and middleware)
@@ -80,31 +80,6 @@ def serialize_exception(exc: BaseException) -> dict[str, Any]:
         result["cause"] = serialize_exception(exc.__cause__)
 
     return result
-
-
-def _process_value(value: Any, path: str, lim: PayloadLimitsOptions) -> Any:
-    """Recursively apply payload limits to a metadata value."""
-    if value is None:
-        return
-
-    field_name = path.split(".")[-1]
-    if field_name in lim.exclude_fields:
-        return "[EXCLUDED]"
-
-    if isinstance(value, str):
-        if len(value) >= 100 and _looks_like_base64(value):
-            return "[BASE64 DATA REMOVED]"
-        if len(value) > lim.max_field_size:
-            return value[: lim.max_field_size] + lim.truncation_marker
-        return value
-
-    if isinstance(value, dict):
-        return {k: _process_value(v, f"{path}.{k}", lim) for k, v in value.items()}
-
-    if isinstance(value, list):
-        return [_process_value(v, f"{path}[{i}]", lim) for i, v in enumerate(value)]
-
-    return value
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +210,6 @@ class LogTideClient:
             )
         resolved_payload = message_or_payload if message_or_payload is not None else payload
         return self.options.service, service_or_message, resolved_payload
-
 
     def log(self, entry: LogEntry) -> None:
         """
