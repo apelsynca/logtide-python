@@ -6,7 +6,8 @@ if TYPE_CHECKING:
 
     from logtide_sdk import LogTideClient
 
-from logtide_sdk import LogEntry, LogLevel, serialize_exception
+from logtide_sdk import LogEntry, LogLevel
+from logtide_sdk.serialization import serialize_exception
 
 LOGGING_RESERVED_ATTRS: frozenset[str] = frozenset(
     [
