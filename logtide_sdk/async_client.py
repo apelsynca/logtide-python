@@ -17,10 +17,10 @@ except ImportError:
         "Install it with: pip install logtide-sdk[async]"
     )
 
+from logtide_sdk._base_client import BaseClient
 from logtide_sdk._retry import classify_failure
 from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.circuit_breaker import CircuitBreaker
-from logtide_sdk.client import serialize_exception
 from logtide_sdk.enums import CircuitState, LogLevel
 from logtide_sdk.exceptions import CircuitBreakerOpenError
 from logtide_sdk.json_encoder import logtide_json_dumps
@@ -31,15 +31,13 @@ from logtide_sdk.models import (
     ClientOptions,
     LogEntry,
     LogsResponse,
-    PayloadLimitsOptions,
     QueryOptions,
 )
-from logtide_sdk.payload_limits import apply_payload_limits
 from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
 
-class AsyncLogTideClient:
+class AsyncLogTideClient(BaseClient):
     """
     Async LogTide SDK Client.
 
@@ -66,7 +64,8 @@ class AsyncLogTideClient:
         Args:
             options: Client configuration options (same as LogTideClient)
         """
-        self.options = options
+        super().__init__(options=options)
+
         self._buffer: list[LogEntry] = []
         self._trace_id: str | None = None
         self._buffer_lock: asyncio.Lock | None = None  # created lazily in first async call
@@ -77,7 +76,6 @@ class AsyncLogTideClient:
             reset_timeout_ms=options.circuit_breaker_reset_ms,
         )
         self._latency_window: list[float] = []
-        self._payload_limits = options.payload_limits or PayloadLimitsOptions()
         self._session: aiohttp.ClientSession | None = None
         self._flush_task: Any | None = None  # asyncio.Task[None]
         self._closed = False
@@ -132,18 +130,6 @@ class AsyncLogTideClient:
             print("[LogTide] Async client closed")
 
     # -----------------------------------------------------------------------
-    # Trace ID helpers
-    # -----------------------------------------------------------------------
-
-    def set_trace_id(self, trace_id: str | None) -> None:
-        """Set trace ID for subsequent logs."""
-        self._trace_id = trace_id
-
-    def get_trace_id(self) -> str | None:
-        """Return the current trace ID."""
-        return self._trace_id
-
-    # -----------------------------------------------------------------------
     # Logging methods
     # -----------------------------------------------------------------------
 
@@ -154,7 +140,10 @@ class AsyncLogTideClient:
         Args:
             entry: Pre-built log entry
         """
-        if self._closed:
+        if self._closed or self.options.local_mode is True:
+            return
+
+        if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
             return
 
         if entry.metadata is None:
@@ -508,12 +497,6 @@ class AsyncLogTideClient:
             self._session = aiohttp.ClientSession()
         return self._session
 
-    def _get_headers(self) -> dict[str, str]:
-        return {
-            "X-API-Key": self.options.api_key,
-            "Content-Type": "application/json",
-        }
-
     async def _flush_loop(self) -> None:
         """Background coroutine: flush on a fixed interval until closed."""
         interval = self.options.flush_interval / 1000.0
@@ -603,29 +586,7 @@ class AsyncLogTideClient:
         ) as response:
             response.raise_for_status()
 
-    def _process_metadata_or_error(
-        self, metadata_or_error: dict[str, Any] | Exception | None
-    ) -> dict[str, Any]:
-        if metadata_or_error is None:
-            return {}
-        if isinstance(metadata_or_error, dict):
-            return metadata_or_error
-        return {"exception": serialize_exception(metadata_or_error)}
-
-    # NOTE: this is twice. (both in async and regular clients, maybe need base class)
-    def _apply_payload_limits(self, entry: LogEntry) -> None:
-        """Enforce payload limits on entry.metadata in-place."""
-        if not entry.metadata:
-            return
-        lim = self._payload_limits
-        entry.metadata = apply_payload_limits(entry.metadata, "root", lim)
-
-        raw = logtide_json_dumps(entry)
-        if len(raw.encode()) > lim.max_log_size:
-            if self.options.debug:
-                print(f"[LogTide] Log entry too large ({len(raw)} bytes), truncating metadata")
-            entry.metadata = {"_truncated": True, "_original_size": len(raw.encode())}
-
+    # TODO: refactor update latency code repeat
     def _update_latency(self, latency: float) -> None:
         with self._metrics_lock:
             self._latency_window.append(latency)

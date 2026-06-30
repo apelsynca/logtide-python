@@ -5,7 +5,6 @@ import dataclasses
 import json
 import random
 import time
-import traceback
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from threading import Event, Lock, Thread, Timer
@@ -13,6 +12,7 @@ from typing import Any
 
 import requests
 
+from logtide_sdk._base_client import BaseClient
 from logtide_sdk._retry import classify_failure
 from logtide_sdk._version import SDK_NAME, VERSION
 from logtide_sdk.circuit_breaker import CircuitBreaker
@@ -26,10 +26,8 @@ from logtide_sdk.models import (
     ClientOptions,
     LogEntry,
     LogsResponse,
-    PayloadLimitsOptions,
     QueryOptions,
 )
-from logtide_sdk.payload_limits import apply_payload_limits
 from logtide_sdk.scope import get_current_scope
 from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
@@ -38,47 +36,12 @@ from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 # ---------------------------------------------------------------------------
 
 
-def serialize_exception(exc: BaseException) -> dict[str, Any]:
-    """
-    Serialize an exception into a structured format.
-
-    Returns a dict with keys: type, message, language, stacktrace, raw.
-    stacktrace is a list of frame dicts: {file, function, line}.
-    Chained exceptions (exc.__cause__) are serialized recursively as 'cause'.
-    """
-    frames: list[dict[str, Any]] = []
-    tb = exc.__traceback__
-    while tb is not None:
-        frame = tb.tb_frame
-        frames.append(
-            {
-                "file": frame.f_code.co_filename,
-                "function": frame.f_code.co_name,
-                "line": tb.tb_lineno,
-            }
-        )
-        tb = tb.tb_next
-
-    result: dict[str, Any] = {
-        "type": type(exc).__name__,
-        "message": str(exc),
-        "language": "python",
-        "stacktrace": frames,
-        "raw": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)),
-    }
-
-    if exc.__cause__ is not None:
-        result["cause"] = serialize_exception(exc.__cause__)
-
-    return result
-
-
 # ---------------------------------------------------------------------------
 # Main client
 # ---------------------------------------------------------------------------
 
 
-class LogTideClient:
+class LogTideClient(BaseClient):
     """
     LogTide SDK Client.
 
@@ -93,7 +56,8 @@ class LogTideClient:
         Args:
             options: Client configuration options
         """
-        self.options = options
+        super().__init__(options=options)
+
         self._buffer: list[LogEntry] = []
         self._trace_id: str | None = None
         self._buffer_lock = Lock()
@@ -106,7 +70,6 @@ class LogTideClient:
         self._latency_window: list[float] = []
         self._flush_timer: Timer | None = None
         self._closed = False
-        self._payload_limits = options.payload_limits or PayloadLimitsOptions()
 
         # Persistent HTTP session for connection reuse across requests
         self._session = requests.Session()
@@ -120,28 +83,6 @@ class LogTideClient:
 
         if self.options.debug:
             print(f"[LogTide] Client initialized: {options.api_url}")
-
-    # -----------------------------------------------------------------------
-    # Trace ID helpers
-    # -----------------------------------------------------------------------
-
-    def set_trace_id(self, trace_id: str | None) -> None:
-        """
-        Set trace ID for subsequent logs.
-
-        Args:
-            trace_id: Trace ID string, or None to clear
-        """
-        self._trace_id = trace_id
-
-    def get_trace_id(self) -> str | None:
-        """
-        Get current trace ID.
-
-        Returns:
-            Current trace ID or None
-        """
-        return self._trace_id
 
     @contextmanager
     def with_trace_id(self, trace_id: str) -> Iterator[None]:
@@ -668,13 +609,6 @@ class LogTideClient:
     # Private helpers
     # -----------------------------------------------------------------------
 
-    def _get_headers(self) -> dict[str, str]:
-        """Return HTTP headers for all API requests."""
-        return {
-            "X-API-Key": self.options.api_key,
-            "Content-Type": "application/json",
-        }
-
     def _send_logs_with_retry(self, log_entries: list[LogEntry]) -> None:
         """Send a batch of logs with exponential backoff and circuit breaker."""
         attempt = 0
@@ -782,37 +716,7 @@ class LogTideClient:
             self.flush()
             self._schedule_flush()
 
-    def _process_metadata_or_error(
-        self, metadata_or_error: dict[str, Any] | Exception | None
-    ) -> dict[str, Any]:
-        """
-        Normalise the metadata_or_error parameter used by error() and critical().
-        Exceptions are serialized to a structured 'exception' key.
-        """
-        if metadata_or_error is None:
-            return {}
-        if isinstance(metadata_or_error, dict):
-            return metadata_or_error
-        return {"exception": serialize_exception(metadata_or_error)}
-
-    def _apply_payload_limits(self, entry: LogEntry) -> None:
-        """Enforce payload limits on entry.metadata in-place."""
-        if not entry.metadata:
-            return
-
-        lim = self._payload_limits
-        entry.metadata = apply_payload_limits(entry.metadata, "root", lim)
-
-        # Enforce total entry size
-        raw = logtide_json_dumps(entry)
-        if len(raw.encode()) > lim.max_log_size:
-            if self.options.debug:
-                print(f"[LogTide] Log entry too large ({len(raw)} bytes), truncating metadata")
-            entry.metadata = {
-                "_truncated": True,
-                "_original_size": len(raw.encode()),
-            }
-
+    # TODO: refactor update latency code repeat
     def _update_latency(self, latency: float) -> None:
         """Update the rolling average latency (100-sample window)."""
         with self._metrics_lock:
