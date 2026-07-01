@@ -15,6 +15,8 @@ class BaseClient:
         self.options = options
         self._payload_limits = options.payload_limits or PayloadLimitsOptions()
 
+        self._closed = False
+
     def set_trace_id(self, trace_id: str | None) -> None:
         """Set trace ID for subsequent logs."""
         self._trace_id = trace_id
@@ -63,3 +65,12 @@ class BaseClient:
         if isinstance(metadata_or_error, dict):
             return metadata_or_error
         return {"exception": serialize_exception(metadata_or_error)}
+
+    def _prepared_to_log(self) -> bool:
+        if self._closed or self.options.local_mode is True:
+            return False
+
+        if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
+            return False
+
+        return True

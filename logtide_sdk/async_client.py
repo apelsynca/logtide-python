@@ -140,10 +140,7 @@ class AsyncLogTideClient(BaseClient):
         Args:
             entry: Pre-built log entry
         """
-        if self._closed or self.options.local_mode is True:
-            return
-
-        if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
+        if not self._prepared_to_log():
             return
 
         if entry.metadata is None:

@@ -151,15 +151,8 @@ class LogTideClient(BaseClient):
         Args:
             entry: Log entry to send
         """
-        # TODO: this method is long (lines of code), need to split it up
-
-        if self._closed or self.options.local_mode is True:
+        if not self._prepared_to_log():
             return
-
-        if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
-            return
-
-        # if self.options
 
         # Coerce None to {} so unpacking never raises TypeError
         if entry.metadata is None:
