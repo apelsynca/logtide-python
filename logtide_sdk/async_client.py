@@ -138,7 +138,7 @@ class AsyncLogTideClient(BaseClient):
         Args:
             entry: Pre-built log entry
         """
-        if not self._prepared_to_log():
+        if self._is_logging_disabled():
             return
 
         if entry.metadata is None:

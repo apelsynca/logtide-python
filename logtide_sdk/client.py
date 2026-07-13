@@ -150,7 +150,7 @@ class LogTideClient(BaseClient):
         Args:
             entry: Log entry to send
         """
-        if not self._prepared_to_log():
+        if self._is_logging_disabled():
             return
 
         # Coerce None to {} so unpacking never raises TypeError

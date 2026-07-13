@@ -68,12 +68,12 @@ class BaseClient:
             return metadata_or_error
         return {"exception": serialize_exception(metadata_or_error)}
 
-    def _prepared_to_log(self) -> bool:
+    def _is_logging_disabled(self) -> bool:
         if self._closed or self.options.local_mode is True:
-            return False
+            return True
         if self.options.local_mode == "if_unset_api_key" and not self.options.api_key:
-            return False
-        return True
+            return True
+        return False
 
     def _pin_trace_id_to_entry(self, entry: LogEntry):
         self._set_trace_and_span_id_from_context(entry)

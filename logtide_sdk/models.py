@@ -64,7 +64,7 @@ class ClientOptions:
     Provide either ``dsn`` or ``api_url`` + ``api_key``.
     """
 
-    api_url: str = "https://api.logtide.dev"
+    api_url: str
     api_key: str | None = None
     local_mode: bool | Literal["if_unset_api_key"] = False
     batch_size: int = 100
@@ -90,8 +90,8 @@ class ClientOptions:
 
         if self.dsn:
             parts = parse_dsn(self.dsn)
-            self.api_url = parts.api_url
-            self.api_key = parts.api_key
+            self.api_url = parts.api_url if self.api_url is None else self.api_url
+            self.api_key = parts.api_key if self.api_key is None else self.api_key
 
         if (
             self.local_mode
