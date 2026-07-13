@@ -153,10 +153,6 @@ class LogTideClient(BaseClient):
         if self._is_logging_disabled():
             return
 
-        # Coerce None to {} so unpacking never raises TypeError
-        if entry.metadata is None:
-            entry.metadata = {}
-
         self._pin_trace_id_to_entry(entry)
 
         # Merge global metadata (entry metadata wins on collision)

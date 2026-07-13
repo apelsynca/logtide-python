@@ -141,9 +141,6 @@ class AsyncLogTideClient(BaseClient):
         if self._is_logging_disabled():
             return
 
-        if entry.metadata is None:
-            entry.metadata = {}
-
         self._pin_trace_id_to_entry(entry)
 
         if self.options.global_metadata:

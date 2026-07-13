@@ -14,6 +14,11 @@ class BaseClient:
     """
 
     def __init__(self, options: ClientOptions) -> None:
+        if not options.local_mode and not options.api_key:
+            raise RuntimeError(
+                f"Cannot instantiate {self.__class__.__name__} without api_key with disabled local_mode"
+            )
+
         self.options = options
         self._payload_limits = options.payload_limits or PayloadLimitsOptions()
 

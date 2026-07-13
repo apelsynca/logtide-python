@@ -59,10 +59,7 @@ class LogEntry:
 
 @dataclass
 class ClientOptions:
-    """Configuration options for LogTide client.
-
-    Provide either ``dsn`` or ``api_url`` + ``api_key``.
-    """
+    """Configuration options for LogTide client."""
 
     api_url: str
     api_key: str | None = None
@@ -79,19 +76,58 @@ class ClientOptions:
     global_metadata: dict[str, Any] = field(default_factory=dict)
     auto_trace_id: bool = False
     payload_limits: PayloadLimitsOptions | None = None
-    dsn: str | None = None
     service: str | None = None
     before_send: Callable[["LogEntry"], "LogEntry | None"] | None = None
     sample_rate: float = 1.0
 
+    @classmethod
+    def from_dsn(
+        cls,
+        dsn: str,
+        *,
+        local_mode: bool | Literal["if_unset_api_key"] = False,
+        batch_size: int = 100,
+        flush_interval: int = 5000,
+        max_buffer_size: int = 10000,
+        max_retries: int = 3,
+        retry_delay_ms: int = 1000,
+        circuit_breaker_threshold: int = 5,
+        circuit_breaker_reset_ms: int = 30000,
+        enable_metrics: bool = True,
+        debug: bool = False,
+        global_metadata: dict[str, Any] = {},
+        auto_trace_id: bool = False,
+        payload_limits: PayloadLimitsOptions | None = None,
+        service: str | None = None,
+        before_send: Callable[["LogEntry"], "LogEntry | None"] | None = None,
+        sample_rate: float = 1.0,
+    ) -> "ClientOptions":
+        dsn_parts = parse_dsn(dsn)
+
+        return cls(
+            api_url=dsn_parts.api_url,
+            api_key=dsn_parts.api_key,
+            local_mode=local_mode,
+            batch_size=batch_size,
+            flush_interval=flush_interval,
+            max_buffer_size=max_buffer_size,
+            max_retries=max_retries,
+            retry_delay_ms=retry_delay_ms,
+            circuit_breaker_threshold=circuit_breaker_threshold,
+            circuit_breaker_reset_ms=circuit_breaker_reset_ms,
+            enable_metrics=enable_metrics,
+            debug=debug,
+            global_metadata=global_metadata,
+            auto_trace_id=auto_trace_id,
+            payload_limits=payload_limits,
+            service=service,
+            before_send=before_send,
+            sample_rate=sample_rate,
+        )
+
     def __post_init__(self) -> None:
         if not 0.0 <= self.sample_rate <= 1.0:
             raise ValueError("sample_rate must be between 0.0 and 1.0")
-
-        if self.dsn:
-            parts = parse_dsn(self.dsn)
-            self.api_url = parts.api_url if self.api_url is None else self.api_url
-            self.api_key = parts.api_key if self.api_key is None else self.api_key
 
         if (
             self.local_mode
@@ -102,8 +138,8 @@ class ClientOptions:
                 "Local mode cannot be positive value other then True or 'if_unset_api_key'"
             )
 
-        if self.local_mode is False and (not self.api_url or not self.api_key):
-            raise ValueError("Either dsn or api_url + api_key must be provided to ClientOptions")
+        if not self.local_mode and not self.api_key:
+            raise ValueError("api_key must be provided to options, unless local_mode configured")
 
 
 @dataclass
