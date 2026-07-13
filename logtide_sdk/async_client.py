@@ -33,8 +33,6 @@ from logtide_sdk.models import (
     LogsResponse,
     QueryOptions,
 )
-from logtide_sdk.scope import get_current_scope
-from logtide_sdk.tracecontext import active_trace_context, generate_trace_id
 
 
 class AsyncLogTideClient(BaseClient):
@@ -146,25 +144,7 @@ class AsyncLogTideClient(BaseClient):
         if entry.metadata is None:
             entry.metadata = {}
 
-        # Active-span trace context (resolution order per spec 005 §4:
-        # explicit -> active span -> scope -> client context/generation).
-        if entry.trace_id is None:
-            active_trace, active_span = active_trace_context()
-            if active_trace is not None:
-                entry.trace_id = active_trace
-                if entry.span_id is None:
-                    entry.span_id = active_span
-
-        # Merge the current scope (tags, user, breadcrumbs, session, trace ctx).
-        # Runs before trace-id injection so the scope's trace context wins
-        # over auto-generation.
-        get_current_scope().apply_to_entry(entry)
-
-        if entry.trace_id is None:
-            if self.options.auto_trace_id:
-                entry.trace_id = generate_trace_id()
-            elif self._trace_id is not None:
-                entry.trace_id = self._trace_id
+        self._pin_trace_id_to_entry(entry)
 
         if self.options.global_metadata:
             entry.metadata = {**self.options.global_metadata, **entry.metadata}
