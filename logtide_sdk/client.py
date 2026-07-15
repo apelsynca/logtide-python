@@ -5,7 +5,7 @@ import dataclasses
 import json
 import random
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from threading import Event, Lock, Thread, Timer
 from typing import Any
@@ -83,7 +83,7 @@ class LogTideClient(BaseClient):
             print(f"[LogTide] Client initialized: {options.api_url}")
 
     @contextmanager
-    def with_trace_id(self, trace_id: str) -> Iterator[None]:
+    def with_trace_id(self, trace_id: str) -> Generator[None]:
         """
         Context manager that sets a trace ID for the duration of the block,
         then restores the previous value.
@@ -103,7 +103,7 @@ class LogTideClient(BaseClient):
             self._trace_id = old_trace_id
 
     @contextmanager
-    def with_new_trace_id(self) -> Iterator[None]:
+    def with_new_trace_id(self) -> Generator[None]:
         """
         Context manager with an auto-generated UUID trace ID.
 
