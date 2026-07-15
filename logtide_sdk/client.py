@@ -58,7 +58,6 @@ class LogTideClient(BaseClient):
         super().__init__(options=options)
 
         self._buffer: list[LogEntry] = []
-        self._trace_id: str | None = None
         self._buffer_lock = Lock()
         self._metrics_lock = Lock()
         self._metrics = ClientMetrics()

@@ -65,7 +65,6 @@ class AsyncLogTideClient(BaseClient):
         super().__init__(options=options)
 
         self._buffer: list[LogEntry] = []
-        self._trace_id: str | None = None
         self._buffer_lock: asyncio.Lock | None = None  # created lazily in first async call
         self._metrics_lock = ThreadingLock()
         self._metrics = ClientMetrics()

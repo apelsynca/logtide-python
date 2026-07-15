@@ -19,10 +19,10 @@ def test_client_options_raises_no_api_key_and_without_local_mode():
 
 
 def test_client_options_accepts_dsn() -> None:
-    opts = ClientOptions.from_dsn(dsn="https://lp_abc@logs.example.com")
+    opts = ClientOptions(dsn="https://lp_SomeKey-12951ThatIsHere@api.myselfhosted.com")
 
-    assert opts.api_url == "https://logs.example.com"
-    assert opts.api_key == "lp_abc"
+    assert opts.api_url == "https://api.myselfhosted.com"
+    assert opts.api_key == "lp_SomeKey-12951ThatIsHere"
 
 
 def test_client_options_explicit_still_works() -> None:

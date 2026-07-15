@@ -20,8 +20,9 @@ class BaseClient:
             )
 
         self.options = options
-        self._payload_limits = options.payload_limits or PayloadLimitsOptions()
 
+        self._payload_limits = options.payload_limits or PayloadLimitsOptions()
+        self._trace_id: str | None = None
         self._closed = False
 
     def set_trace_id(self, trace_id: str | None) -> None:
