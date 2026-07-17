@@ -13,16 +13,16 @@ import secrets
 from dataclasses import dataclass
 
 __all__ = [
+    "LEGACY_TRACE_HEADER",
+    "TRACEPARENT_HEADER",
     "TraceContext",
     "active_trace_context",
-    "register_active_context_provider",
-    "TRACEPARENT_HEADER",
-    "LEGACY_TRACE_HEADER",
-    "generate_trace_id",
-    "generate_span_id",
-    "parse_traceparent",
     "format_traceparent",
+    "generate_span_id",
+    "generate_trace_id",
     "inject_traceparent",
+    "parse_traceparent",
+    "register_active_context_provider",
     "resolve_trace_id",
 ]
 

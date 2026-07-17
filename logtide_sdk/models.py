@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Literal
 
 from logtide_sdk.dsn import parse_dsn
 from logtide_sdk.enums import LogLevel
@@ -59,13 +59,12 @@ class LogEntry:
 
 @dataclass
 class ClientOptions:
-    """Configuration options for LogTide client.
+    """Configuration options for LogTide client."""
 
-    Provide either ``dsn`` or ``api_url`` + ``api_key``.
-    """
-
-    api_url: str = ""
-    api_key: str = ""
+    api_url: str | None = None
+    api_key: str | None = None
+    dsn: str | None = None
+    local_mode: bool | Literal["if_unset_api_key"] = False
     batch_size: int = 100
     flush_interval: int = 5000
     max_buffer_size: int = 10000
@@ -78,24 +77,33 @@ class ClientOptions:
     global_metadata: dict[str, Any] = field(default_factory=dict)
     auto_trace_id: bool = False
     payload_limits: PayloadLimitsOptions | None = None
-    dsn: str | None = None
     service: str | None = None
     before_send: Callable[["LogEntry"], "LogEntry | None"] | None = None
     sample_rate: float = 1.0
 
     def __post_init__(self) -> None:
+        if self.dsn:
+            dsn_parts = parse_dsn(self.dsn)
+            self.api_key = self.api_key if self.api_key else dsn_parts.api_key
+            self.api_url = self.api_url if self.api_url else dsn_parts.api_url
+
+        if not self.api_url:
+            raise ValueError("api_url must be provided")
+
         if not 0.0 <= self.sample_rate <= 1.0:
             raise ValueError("sample_rate must be between 0.0 and 1.0")
-        if self.dsn:
-            parts = parse_dsn(self.dsn)
-            if not self.api_url:
-                self.api_url = parts.api_url
-            if not self.api_key:
-                self.api_key = parts.api_key
-        if not self.api_url or not self.api_key:
+
+        if (
+            self.local_mode
+            and self.local_mode is not True
+            and self.local_mode != "if_unset_api_key"
+        ):
             raise ValueError(
-                "Either dsn or api_url + api_key must be provided to ClientOptions"
+                "Local mode cannot be positive value other than True or 'if_unset_api_key'"
             )
+
+        if not self.local_mode and not self.api_key:
+            raise ValueError("api_key must be provided to options, unless local_mode configured")
 
 
 @dataclass

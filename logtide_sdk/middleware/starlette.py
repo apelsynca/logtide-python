@@ -3,6 +3,8 @@
 import time
 from collections.abc import Callable
 
+from logtide_sdk.serialization import serialize_exception
+
 try:
     from starlette.middleware.base import BaseHTTPMiddleware
     from starlette.requests import Request
@@ -14,7 +16,7 @@ except ImportError:
         "Install it with: pip install logtide-sdk[starlette]"
     )
 
-from logtide_sdk.client import LogTideClient, serialize_exception
+from logtide_sdk.client import LogTideClient
 from logtide_sdk.scope import push_scope
 from logtide_sdk.tracecontext import resolve_trace_id
 

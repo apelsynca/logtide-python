@@ -1,6 +1,7 @@
 """Basic tests for LogTide SDK."""
 
 from dataclasses import dataclass
+from typing import Literal
 from unittest.mock import MagicMock
 
 import pytest
@@ -16,17 +17,8 @@ from logtide_sdk.json_encoder import logtide_json_dumps
 from logtide_sdk.models import LogEntry
 
 
-@pytest.fixture
-def client() -> LogTideClient:
-    return LogTideClient(
-        ClientOptions(
-            api_url="http://localhost:8080",
-            api_key="test_key",
-        )
-    )
-
-
 def test_client_initialization():
+    # leave it here as part of the test
     client = LogTideClient(
         ClientOptions(
             api_url="http://localhost:8080",
@@ -37,6 +29,19 @@ def test_client_initialization():
     assert client.options.api_url == "http://localhost:8080"
     assert client.options.api_key == "test_key"
     client.close()
+
+
+@pytest.fixture
+def options() -> ClientOptions:
+    return ClientOptions(
+        api_url="http://localhost:8080",
+        api_key="test_key",
+    )
+
+
+@pytest.fixture
+def client(options: ClientOptions) -> LogTideClient:
+    return LogTideClient(options)
 
 
 def test_logging_methods(client: LogTideClient):
@@ -231,3 +236,45 @@ def test_flush_with_unjsonable_payload_and_no_trace_id(
         data=json_string,
         timeout=30,
     )
+
+
+@pytest.mark.parametrize("local_mode", ["if_unset_api_key", True])
+def test_log_does_nothing_in_local_mode(
+    mocker: MockerFixture, local_mode: Literal["if_unset_api_key"] | bool
+) -> None:
+    client = LogTideClient(ClientOptions(api_url="https://someapiurl.com", local_mode=local_mode))
+    apply_payload_limits_mock = mocker.patch.object(client, "_apply_payload_limits")
+    flush_mock = mocker.patch.object(client, "flush")
+
+    client.log(
+        LogEntry(
+            service="randomService-name",
+            level=LogLevel.INFO,
+            message="Some random message that shouldn't be sent",
+        )
+    )
+
+    apply_payload_limits_mock.assert_not_called()
+    flush_mock.assert_not_called()
+
+    assert len(client._buffer) == 0
+
+
+def test_log_does_smth_if_api_key_and_local_if_unset_api_key(mocker: MockerFixture) -> None:
+    client = LogTideClient(
+        ClientOptions(
+            api_url="https://someapiurl.com",
+            api_key="abc_some_api_key",
+            local_mode="if_unset_api_key",
+        )
+    )
+
+    client.log(
+        LogEntry(
+            service="randomService-name",
+            level=LogLevel.INFO,
+            message="Some random message that shouldn't be sent",
+        )
+    )
+
+    assert len(client._buffer) != 0

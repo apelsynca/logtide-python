@@ -13,7 +13,7 @@ entry's top-level fields.
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -136,7 +136,7 @@ class Scope:
 
     # ------------------------------------------------------------- clone
 
-    def clone(self) -> "Scope":
+    def clone(self) -> Scope:
         clone = Scope(max_breadcrumbs=self.max_breadcrumbs)
         clone.tags = dict(self.tags)
         clone.extra = dict(self.extra)
@@ -149,7 +149,7 @@ class Scope:
 
     # ------------------------------------------------------------- apply
 
-    def apply_to_entry(self, entry: "LogEntry") -> None:
+    def apply_to_entry(self, entry: LogEntry) -> None:
         """Merge scope state into an entry. Entry-level values win."""
         if self.extra:
             entry.metadata = {**self.extra, **entry.metadata}
@@ -184,7 +184,7 @@ def get_current_scope() -> Scope:
 
 
 @contextmanager
-def push_scope() -> Iterator[Scope]:
+def push_scope() -> Generator[Scope]:
     """Activate a clone of the current scope for the duration of the block.
 
     Mutations inside the block (tags, breadcrumbs, user, ...) do not leak
