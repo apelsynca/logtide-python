@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-17
+
+### Added
+
+- **`ClientOptions.local_mode`**: turns the client into a no-op — `log()` returns before buffering, so nothing is retained or sent. Accepts `True` (always off) or `"if_unset_api_key"` (off only when no `api_key` is resolved), which lets the same code run unchanged in dev/test environments without credentials. Honoured by both `LogTideClient` and `AsyncLogTideClient`
+- `api_url` and `api_key` are optional when `local_mode` is enabled: `ClientOptions(local_mode=True)` needs no endpoint, since the client never reaches the network
+
+### Changed
+
+- **BREAKING — `ClientOptions` field order changed**: `dsn` moved to 3rd position and `local_mode` was inserted 4th. Construction using positional arguments beyond `api_url`/`api_key` now binds to different fields — `ClientOptions(url, key, 200)` previously set `batch_size`, and now raises `DsnParseError`. Keyword arguments are unaffected
+- `api_url` and `api_key` now default to `None` instead of `""`
+- A missing `api_url` and a missing `api_key` now raise separate, specific `ValueError` messages instead of a single combined "Either dsn or api_url + api_key" error
+
+### Internal
+
+- Shared client logic extracted into `BaseClient`, removing the duplication between the sync and async clients
+- Payload limiting moved to `logtide_sdk.payload_limits` (`apply_payload_limits`) and exception serialization to `logtide_sdk.serialization`, so `async_client` no longer imports private helpers from `client`
+
 ## [0.9.8] - 2026-06-11
 
 ### Added
