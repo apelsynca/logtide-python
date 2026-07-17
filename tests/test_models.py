@@ -18,6 +18,14 @@ def test_client_options_raises_no_api_key_and_without_local_mode():
         ClientOptions(api_url="https://somenetwork:8080")
 
 
+def test_client_options_raises_no_api_url_but_with_api_key():
+    with pytest.raises(ValueError, match="api_url must be provided"):
+        ClientOptions(api_key="lp_someApiKey_H3re")
+
+    with pytest.raises(ValueError, match="api_url must be provided"):
+        ClientOptions(api_url="", api_key="lp_someApiKey_H3re")
+
+
 def test_client_options_accepts_dsn() -> None:
     opts = ClientOptions(dsn="https://lp_SomeKey-12951ThatIsHere@api.myselfhosted.com")
 

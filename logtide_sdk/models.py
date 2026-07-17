@@ -87,6 +87,9 @@ class ClientOptions:
             self.api_key = self.api_key if self.api_key else dsn_parts.api_key
             self.api_url = self.api_url if self.api_url else dsn_parts.api_url
 
+        if not self.api_url:
+            raise ValueError("api_url must be provided")
+
         if not 0.0 <= self.sample_rate <= 1.0:
             raise ValueError("sample_rate must be between 0.0 and 1.0")
 
@@ -96,7 +99,7 @@ class ClientOptions:
             and self.local_mode != "if_unset_api_key"
         ):
             raise ValueError(
-                "Local mode cannot be positive value other then True or 'if_unset_api_key'"
+                "Local mode cannot be positive value other than True or 'if_unset_api_key'"
             )
 
         if not self.local_mode and not self.api_key:
