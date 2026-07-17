@@ -13,6 +13,16 @@ def test_client_options_ignores_unset_api_key_if_set_unset_or_local_mode(
     ClientOptions(api_url="https://any.apiurl.dev", api_key=api_key, local_mode=local_mode)
 
 
+@pytest.mark.parametrize("local_mode", ["if_unset_api_key", True])
+def test_client_options_needs_no_url_or_key_in_local_mode(
+    local_mode: Literal["if_unset_api_key"] | bool,
+) -> None:
+    opts = ClientOptions(local_mode=local_mode)
+
+    assert opts.api_url is None
+    assert opts.api_key is None
+
+
 def test_client_options_raises_no_api_key_and_without_local_mode():
     with pytest.raises(ValueError, match="api_key must be provided"):
         ClientOptions(api_url="https://somenetwork:8080")
